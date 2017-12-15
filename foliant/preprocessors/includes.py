@@ -56,7 +56,7 @@ class Preprocessor(BasePreprocessor):
         :returns: Path to the cloned repository
         '''
 
-        repo_name = repo_url.split('/')[-1].split('.')[0]
+        repo_name = repo_url.split('/')[-1].rsplit('.', maxsplit=1)[0]
         repo_path = self._cache_path / repo_name
 
         try:
