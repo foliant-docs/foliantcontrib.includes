@@ -15,7 +15,7 @@ class Preprocessor(BasePreprocessor):
     tags = 'include',
 
     _heading_pattern = re.compile(
-        r'^(?P<hashes>\#+)\s*(?P<title>[^\#]+)\s*$',
+        r'^(?P<hashes>\#+)\s*(?P<title>[^\#]+.+)\s*$',
         flags=re.MULTILINE
     )
     _image_pattern = re.compile(r'\!\[(?P<caption>.*)\]\((?P<path>((?!:\/\/).)+)\)')
