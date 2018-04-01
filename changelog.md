@@ -10,4 +10,9 @@
 
 # 1.0.3
 
-- Allow hashes (`#` characters) in the content of headings.
+-   Allow hashes (`#` characters) in the content of headings.
+
+
+# 1.0.4
+
+-   Fix the pattern for headings detection.
