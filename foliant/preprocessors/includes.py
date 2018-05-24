@@ -111,7 +111,7 @@ class Preprocessor(BasePreprocessor):
         result = float('inf')
 
         for heading in self._heading_pattern.findall(content):
-            heading_level = heading.count('#')
+            heading_level = len(self._heading_pattern.match(heading).group('hashes'))
 
             if heading_level < result:
                 result = heading_level
@@ -147,7 +147,7 @@ class Preprocessor(BasePreprocessor):
             return ''
 
         from_heading_line = from_heading_pattern.findall(content)[0]
-        from_heading_level = from_heading_line.count('#')
+        from_heading_level = len(self._heading_pattern.match(from_heading_line).group('hashes'))
 
         result = from_heading_pattern.split(content)[1]
 
@@ -201,7 +201,7 @@ class Preprocessor(BasePreprocessor):
 
         if self._heading_pattern.fullmatch(first_line):
             from_heading_line = first_line
-            from_heading_level = from_heading_line.count('#')
+            from_heading_level = len(self._heading_pattern.match(from_heading_line).group('hashes'))
             result = content_buffer.read()
 
         else:
