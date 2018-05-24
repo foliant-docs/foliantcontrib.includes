@@ -313,7 +313,7 @@ class Preprocessor(BasePreprocessor):
 
             else:
                 return self._process_include(
-                    self.project_path/self.config['src_dir']/body.group('path'),
+                    self._current_dir/body.group('path'),
                     body.group('from_heading'),
                     body.group('to_heading'),
                     options
@@ -330,10 +330,13 @@ class Preprocessor(BasePreprocessor):
         super().__init__(*args, **kwargs)
 
         self._cache_path = self.project_path / self.options['cache_dir']
+        self._current_dir = self.working_dir
 
     def apply(self):
         for markdown_file_path in self.working_dir.rglob('*.md'):
             with open(markdown_file_path, encoding='utf8') as markdown_file:
                 content = markdown_file.read()
+
             with open(markdown_file_path, 'w', encoding='utf8') as markdown_file:
+                self._current_dir = markdown_file_path.parent
                 markdown_file.write(self.process_includes(content))
