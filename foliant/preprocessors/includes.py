@@ -36,6 +36,8 @@ class Preprocessor(BasePreprocessor):
         :raises: FileNotFoundError
         '''
 
+        self.logger.debug('Trying to find the file {file_name} inside the directory {lookup_dir}')
+
         result = None
 
         for item in lookup_dir.rglob('*'):
@@ -44,6 +46,8 @@ class Preprocessor(BasePreprocessor):
                 break
         else:
             raise FileNotFoundError(file_name)
+
+        self.logger.debug('File found: {result}')
 
         return result
 
@@ -59,7 +63,11 @@ class Preprocessor(BasePreprocessor):
         repo_name = repo_url.split('/')[-1].rsplit('.', maxsplit=1)[0]
         repo_path = self._cache_path / repo_name
 
+        self.logger.debug(f'Synchronizing with repo; URL: {repo_url}, revision: {revision}')
+
         try:
+            self.logger.debug(f'Cloning repo {repo_url} to {repo_path}')
+
             run(
                 f'git clone {repo_url} {repo_path}',
                 shell=True,
@@ -68,8 +76,14 @@ class Preprocessor(BasePreprocessor):
                 stderr=STDOUT
             )
 
-        except CalledProcessError:
-            run('git pull', cwd=repo_path, shell=True, check=True, stdout=PIPE, stderr=STDOUT)
+        except CalledProcessError as exception:
+            if repo_path.exists():
+                self.logger.debug('Repo already cloned; pulling from remote')
+
+                run('git pull', cwd=repo_path, shell=True, check=True, stdout=PIPE, stderr=STDOUT)
+
+            else:
+                self.logger.error(str(exception))
 
         if revision:
             run(
@@ -95,6 +109,9 @@ class Preprocessor(BasePreprocessor):
 
         def _sub(heading):
             new_heading_level = len(heading.group('hashes')) + shift
+
+            self.logger.debug(f'Shift heading level to {new_heading_level}')
+
             return f'{"#" * new_heading_level} {heading.group("title")}'
 
         return self._heading_pattern.sub(_sub, content)
@@ -115,6 +132,8 @@ class Preprocessor(BasePreprocessor):
 
             if heading_level < result:
                 result = heading_level
+
+            self.logger.debug(f'Maximum heading level: {result}')
 
         return result if result < float('inf') else 0
 
@@ -141,6 +160,8 @@ class Preprocessor(BasePreprocessor):
         :returns: Part of the Markdown content between headings with internal headings adjusted
         '''
 
+        self.logger.debug(f'Cutting from heading: {from_heading}, to heading: {to_heading}, options: {options}')
+
         from_heading_pattern = re.compile(rf'^\#+\s*{from_heading}\s*$', flags=re.MULTILINE)
 
         if not from_heading_pattern.findall(content):
@@ -148,6 +169,8 @@ class Preprocessor(BasePreprocessor):
 
         from_heading_line = from_heading_pattern.findall(content)[0]
         from_heading_level = len(self._heading_pattern.match(from_heading_line).group('hashes'))
+
+        self.logger.debug(f'From heading level: {from_heading_level}')
 
         result = from_heading_pattern.split(content)[1]
 
@@ -195,6 +218,8 @@ class Preprocessor(BasePreprocessor):
             with internal headings adjusted
         '''
 
+        self.logger.debug(f'Cutting to heading: {to_heading}, options: {options}')
+
         content_buffer = StringIO(content)
 
         first_line = content_buffer.readline()
@@ -208,6 +233,8 @@ class Preprocessor(BasePreprocessor):
             from_heading_line = ''
             from_heading_level = self._find_top_heading_level(content)
             result = content
+
+        self.logger.debug(f'From heading level: {from_heading_level}')
 
         if to_heading:
             to_heading_pattern = re.compile(rf'^\#+\s*{to_heading}\s*$', flags=re.MULTILINE)
@@ -239,9 +266,49 @@ class Preprocessor(BasePreprocessor):
             image_caption = image.group('caption')
             image_path = md_file_path.parent / Path(image.group('path'))
 
+            self.logger.debug(
+                f'Updating image reference; user specified path: {image.group("path")}, ' +
+                f'absolute path: {image_path}, caption: {image_caption}'
+            )
+
             return f'![{image_caption}]({image_path.absolute().as_posix()})'
 
         return self._image_pattern.sub(_sub, content)
+
+    def _get_local_file_path(self, user_specified_path: str) -> Path:
+        '''Resolve user specified path to a local file.
+
+        :param user_specified_path: User specified string that represents
+            the path to a local file
+
+        :returns: Local file path relative to the temporary working directory,
+            if the file is located inside it, or to the project source directory,
+            if the file is not located inside the temporary working directory
+        '''
+
+        self.logger.debug(f'Current directory: {self._current_dir}')
+
+        try:
+            path_relative_to_current_dir = (self._current_dir/user_specified_path).relative_to(self._current_dir)
+
+        except ValueError:
+            path_relative_to_current_dir = Path(user_specified_path)
+
+        self.logger.debug(f'Path relative to the current directory: {path_relative_to_current_dir}')
+
+        if self.working_dir.resolve() in (self._current_dir/user_specified_path).resolve().parents:
+            resolved_file_path = self._current_dir/path_relative_to_current_dir
+
+        else:
+            resolved_file_path = (
+                self.config['src_dir']/
+                self._current_dir.relative_to(self.working_dir)/
+                path_relative_to_current_dir
+            )
+
+        self.logger.debug(f'Resolved path: {resolved_file_path}')
+
+        return resolved_file_path
 
     def _process_include(
             self,
@@ -261,6 +328,11 @@ class Preprocessor(BasePreprocessor):
 
         :returns: Included file content
         '''
+
+        self.logger.debug(
+            f'File path: {file_path}, from heading: {from_heading}, ' +
+            f'to heading: {to_heading}, options: {options}'
+        )
 
         if file_path.name.startswith('^'):
             file_path = self._find_file(file_path.name[1:], file_path.parent)
@@ -299,10 +371,14 @@ class Preprocessor(BasePreprocessor):
             body = self._tag_body_pattern.match(include.group('body').strip())
             options = self.get_options(include.group('options'))
 
+            self.logger.debug(f'Processing include statement; body: {body}, options: {options}')
+
             if body.group('repo'):
                 repo = body.group('repo')
                 repo_url = self.options['aliases'].get(repo) or repo
                 repo_path = self._sync_repo(repo_url, body.group('revision'))
+
+                self.logger.debug(f'File in Git repository referenced; URL: {repo_url}, path: {repo_path}')
 
                 return self._process_include(
                     repo_path/body.group('path'),
@@ -312,16 +388,10 @@ class Preprocessor(BasePreprocessor):
                 )
 
             else:
-                included_file_relative_path = (self._current_dir/body.group('path')).relative_to(self._current_dir)
-
-                if self.working_dir.resolve() in (self._current_dir/body.group('path')).resolve().parents:
-                    included_file_path = self.working_dir/included_file_relative_path
-
-                else:
-                    included_file_path = self.config['src_dir']/included_file_relative_path
+                self.logger.debug('Local file referenced')
 
                 return self._process_include(
-                    included_file_path,
+                    self._get_local_file_path(body.group('path')),
                     body.group('from_heading'),
                     body.group('to_heading'),
                     options
@@ -340,7 +410,15 @@ class Preprocessor(BasePreprocessor):
         self._cache_path = self.project_path / self.options['cache_dir']
         self._current_dir = self.working_dir
 
+
+        self.logger = self.logger.getChild('includes')
+
+        self.logger.debug(f'Preprocessor inited: {self.__dict__}')
+
+
     def apply(self):
+        self.logger.info('Applying preprocessor')
+
         for markdown_file_path in self.working_dir.rglob('*.md'):
             with open(markdown_file_path, encoding='utf8') as markdown_file:
                 content = markdown_file.read()
@@ -348,3 +426,5 @@ class Preprocessor(BasePreprocessor):
             with open(markdown_file_path, 'w', encoding='utf8') as markdown_file:
                 self._current_dir = markdown_file_path.parent
                 markdown_file.write(self.process_includes(content))
+
+        self.logger.info('Preprocessor applied')
