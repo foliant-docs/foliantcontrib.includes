@@ -312,8 +312,16 @@ class Preprocessor(BasePreprocessor):
                 )
 
             else:
+                included_file_relative_path = (self._current_dir/body.group('path')).relative_to(self._current_dir)
+
+                if self.working_dir.resolve() in (self._current_dir/body.group('path')).resolve().parents:
+                    included_file_path = self.working_dir/included_file_relative_path
+
+                else:
+                    included_file_path = self.config['src_dir']/included_file_relative_path
+
                 return self._process_include(
-                    self._current_dir/body.group('path'),
+                    included_file_path,
                     body.group('from_heading'),
                     body.group('to_heading'),
                     options
