@@ -1,3 +1,8 @@
+# 1.0.6
+
+-   Fix logging in file search method.
+-   Fix top heading level calculation.
+
 # 1.0.5
 
 -   Use paths that are relative to the current processed Markdown file.
