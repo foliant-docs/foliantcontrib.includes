@@ -126,8 +126,8 @@ class Preprocessor(BasePreprocessor):
 
         result = float('inf')
 
-        for heading in self._heading_pattern.findall(content):
-            heading_level = len(self._heading_pattern.match(heading).group('hashes'))
+        for heading in self._heading_pattern.finditer(content):
+            heading_level = len(heading.group('hashes'))
 
             if heading_level < result:
                 result = heading_level
