@@ -25,8 +25,7 @@ class Preprocessor(BasePreprocessor):
         r'(\#(?P<from_heading>[^:]*)(:(?P<to_heading>.+))?)?'
     )
 
-    @staticmethod
-    def _find_file(file_name: str, lookup_dir: Path) -> Path or None:
+    def _find_file(self, file_name: str, lookup_dir: Path) -> Path or None:
         '''Find a file in a directory by name. Check subdirectories recursively.
 
         :param file_name: Name of the file
@@ -409,7 +408,6 @@ class Preprocessor(BasePreprocessor):
 
         self._cache_path = self.project_path / self.options['cache_dir']
         self._current_dir = self.working_dir
-
 
         self.logger = self.logger.getChild('includes')
 
