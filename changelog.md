@@ -1,3 +1,7 @@
+# 1.0.7
+
+-   Fix paths resolving in case of recursive processing of include statements.
+
 # 1.0.6
 
 -   Fix logging in file search method.
