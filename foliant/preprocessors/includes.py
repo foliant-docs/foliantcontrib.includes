@@ -274,38 +274,40 @@ class Preprocessor(BasePreprocessor):
 
         return self._image_pattern.sub(_sub, content)
 
-    def _get_local_file_path(self, user_specified_path: str) -> Path:
+    def _get_local_file_path(self, user_specified_path: str, current_processed_file_path: Path) -> Path:
         '''Resolve user specified path to a local file.
 
         :param user_specified_path: User specified string that represents
             the path to a local file
 
-        :returns: Local file path relative to the temporary working directory,
-            if the file is located inside it, or to the project source directory,
-            if the file is not located inside the temporary working directory
+        :param current_processed_file_path: Path to the currently processed Markdown file
+
+        :returns: Local file path relative to the currently processed Markdown file
         '''
 
-        self.logger.debug(f'Current directory: {self._current_dir}')
+        current_dir = current_processed_file_path.parent
+
+        self.logger.debug(f'Directory that contains currently processed Markdown file: {current_dir}')
 
         try:
-            path_relative_to_current_dir = (self._current_dir/user_specified_path).relative_to(self._current_dir)
+            path_relative_to_current_dir = (current_dir/user_specified_path).relative_to(current_dir)
 
         except ValueError:
             path_relative_to_current_dir = Path(user_specified_path)
 
-        self.logger.debug(f'Path relative to the current directory: {path_relative_to_current_dir}')
+        self.logger.debug(f'Included file path relative to the current directory: {path_relative_to_current_dir}')
 
-        if self.working_dir.resolve() in (self._current_dir/user_specified_path).resolve().parents:
-            resolved_file_path = self._current_dir/path_relative_to_current_dir
+        if self.working_dir.resolve() in (current_dir/user_specified_path).resolve().parents:
+            resolved_file_path = current_dir/path_relative_to_current_dir
 
         else:
             resolved_file_path = (
                 self.config['src_dir']/
-                self._current_dir.relative_to(self.working_dir)/
+                current_dir.relative_to(self.working_dir)/
                 path_relative_to_current_dir
             )
 
-        self.logger.debug(f'Resolved path: {resolved_file_path}')
+        self.logger.debug(f'Resolved path to the included file: {resolved_file_path}')
 
         return resolved_file_path
 
@@ -329,7 +331,7 @@ class Preprocessor(BasePreprocessor):
         '''
 
         self.logger.debug(
-            f'File path: {file_path}, from heading: {from_heading}, ' +
+            f'Included file path: {file_path}, from heading: {from_heading}, ' +
             f'to heading: {to_heading}, options: {options}'
         )
 
@@ -358,56 +360,83 @@ class Preprocessor(BasePreprocessor):
 
         return incl_content
 
-    def process_includes(self, content: str) -> str:
+    def process_includes(self, markdown_file_path: Path, content: str) -> str:
         '''Replace all include statements with the respective file contents.
 
+        :param markdown_file_path: Path to curently processed Markdown file
         :param content: Markdown content
 
         :returns: Markdown content with resolved includes
         '''
 
-        def _sub(include):
-            body = self._tag_body_pattern.match(include.group('body').strip())
-            options = self.get_options(include.group('options'))
+        self.logger.debug(f'Processing Markdown file: {markdown_file_path}')
 
-            self.logger.debug(f'Processing include statement; body: {body}, options: {options}')
+        processed_content = ''
 
-            if body.group('repo'):
-                repo = body.group('repo')
-                repo_url = self.options['aliases'].get(repo) or repo
-                repo_path = self._sync_repo(repo_url, body.group('revision'))
+        include_statement_pattern = re.compile(
+            rf'((?<!\<)\<{"|".join(self.tags)}(?:\s[^\<\>]*)?\>.*?\<\/{"|".join(self.tags)}\>)',
+            flags=re.DOTALL
+        )
 
-                self.logger.debug(f'File in Git repository referenced; URL: {repo_url}, path: {repo_path}')
+        content_parts = include_statement_pattern.split(content)
 
-                return self._process_include(
-                    repo_path/body.group('path'),
-                    body.group('from_heading'),
-                    body.group('to_heading'),
-                    options
-                )
+        for content_part in content_parts:
+            include_statement = self.pattern.fullmatch(content_part)
+
+            if include_statement:
+                body = self._tag_body_pattern.match(include_statement.group('body').strip())
+                options = self.get_options(include_statement.group('options'))
+
+                self.logger.debug(f'Processing include statement; body: {body}, options: {options}')
+
+                if body.group('repo'):
+                    repo = body.group('repo')
+                    repo_url = self.options['aliases'].get(repo) or repo
+                    repo_path = self._sync_repo(repo_url, body.group('revision'))
+
+                    self.logger.debug(f'File in Git repository referenced; URL: {repo_url}, path: {repo_path}')
+
+                    included_file_path = repo_path/body.group('path')
+
+                    self.logger.debug(f'Resolved path to the included file: {included_file_path}')
+
+                    processed_content_part = self._process_include(
+                        included_file_path,
+                        body.group('from_heading'),
+                        body.group('to_heading'),
+                        options
+                    )
+
+                else:
+                    self.logger.debug('Local file referenced')
+
+                    included_file_path = self._get_local_file_path(body.group('path'), markdown_file_path)
+
+                    self.logger.debug(f'Resolved path to the included file: {included_file_path}')
+
+                    processed_content_part = self._process_include(
+                        included_file_path,
+                        body.group('from_heading'),
+                        body.group('to_heading'),
+                        options
+                    )
+
+                if self.options['recursive'] and self.pattern.search(processed_content_part):
+                    self.logger.debug('Recursive call of include statements processing')
+
+                    processed_content_part = self.process_includes(included_file_path, processed_content_part)
 
             else:
-                self.logger.debug('Local file referenced')
+                processed_content_part = content_part
 
-                return self._process_include(
-                    self._get_local_file_path(body.group('path')),
-                    body.group('from_heading'),
-                    body.group('to_heading'),
-                    options
-                )
+            processed_content += processed_content_part
 
-        result = self.pattern.sub(_sub, content)
-
-        if self.options['recursive'] and self.pattern.search(result):
-            return self.process_includes(result)
-        else:
-            return result
+        return processed_content
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self._cache_path = self.project_path / self.options['cache_dir']
-        self._current_dir = self.working_dir
 
         self.logger = self.logger.getChild('includes')
 
@@ -422,7 +451,6 @@ class Preprocessor(BasePreprocessor):
                 content = markdown_file.read()
 
             with open(markdown_file_path, 'w', encoding='utf8') as markdown_file:
-                self._current_dir = markdown_file_path.parent
-                markdown_file.write(self.process_includes(content))
+                markdown_file.write(self.process_includes(markdown_file_path, content))
 
         self.logger.info('Preprocessor applied')
