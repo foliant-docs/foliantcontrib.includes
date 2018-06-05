@@ -302,6 +302,7 @@ class Preprocessor(BasePreprocessor):
 
         else:
             resolved_file_path = (
+                self.project_path/
                 self.config['src_dir']/
                 current_dir.relative_to(self.working_dir)/
                 path_relative_to_current_dir
