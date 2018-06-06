@@ -20,7 +20,7 @@ class Preprocessor(BasePreprocessor):
     )
     _image_pattern = re.compile(r'\!\[(?P<caption>.*)\]\((?P<path>((?!:\/\/).)+)\)')
     _tag_body_pattern = re.compile(
-        r'(\$(?P<repo>[^\#^\$]+)(#(?P<revision>[^\$]+))?\$)?' +
+        r'(\$(?P<repo>[^\$]+)\$)?' +
         r'(?P<path>[^\#]+)' +
         r'(\#(?P<from_heading>[^:]*)(:(?P<to_heading>.+))?)?'
     )
@@ -421,10 +421,20 @@ class Preprocessor(BasePreprocessor):
 
                 if body.group('repo'):
                     repo = body.group('repo')
-                    repo_url = self.options['aliases'].get(repo) or repo
-                    repo_path = self._sync_repo(repo_url, body.group('revision'))
+                    repo_resolved = self.options['aliases'].get(repo) or repo
+                    repo_parts = repo_resolved.split('#', maxsplit=1)
 
-                    self.logger.debug(f'File in Git repository referenced; URL: {repo_url}, path: {repo_path}')
+                    repo_url = repo_parts[0]
+                    revision = None
+
+                    if len(repo_parts) == 2:
+                        revision = repo_parts[1]
+
+                    self.logger.debug(f'File in Git repository referenced; URL: {repo_url}, revision: {revision}')
+
+                    repo_path = self._sync_repo(repo_url, revision)
+
+                    self.logger.debug(f'Local path of the repo: {repo_path}')
 
                     included_file_path = repo_path / body.group('path')
 
