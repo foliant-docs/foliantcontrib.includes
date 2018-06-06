@@ -60,7 +60,7 @@ class Preprocessor(BasePreprocessor):
         '''
 
         repo_name = repo_url.split('/')[-1].rsplit('.', maxsplit=1)[0]
-        repo_path = self._cache_path / repo_name
+        repo_path = (self._cache_path / repo_name).resolve()
 
         self.logger.debug(f'Synchronizing with repo; URL: {repo_url}, revision: {revision}')
 
@@ -274,43 +274,59 @@ class Preprocessor(BasePreprocessor):
 
         return self._image_pattern.sub(_sub, content)
 
-    def _get_local_file_path(self, user_specified_path: str, current_processed_file_path: Path) -> Path:
-        '''Resolve user specified path to a local file.
+    def _get_included_file_path(self, user_specified_path: str, current_processed_file_path: Path) -> Path:
+        '''Resolve user specified path to the local included file.
 
         :param user_specified_path: User specified string that represents
             the path to a local file
 
         :param current_processed_file_path: Path to the currently processed Markdown file
+            that contains include statements
 
-        :returns: Local file path relative to the currently processed Markdown file
+        :returns: Local path of the included file relative to the currently processed Markdown file
         '''
 
-        current_dir = current_processed_file_path.parent
+        self.logger.debug(f'Currently processed Markdown file: {current_processed_file_path}')
 
-        self.logger.debug(f'Directory that contains currently processed Markdown file: {current_dir}')
-
-        try:
-            path_relative_to_current_dir = (current_dir/user_specified_path).relative_to(current_dir)
-
-        except ValueError:
-            path_relative_to_current_dir = Path(user_specified_path)
-
-        self.logger.debug(f'Included file path relative to the current directory: {path_relative_to_current_dir}')
-
-        if self.working_dir.resolve() in (current_dir/user_specified_path).resolve().parents:
-            resolved_file_path = current_dir/path_relative_to_current_dir
-
-        else:
-            resolved_file_path = (
-                self.project_path/
-                self.config['src_dir']/
-                current_dir.relative_to(self.working_dir)/
-                path_relative_to_current_dir
+        if self.working_dir.resolve() in current_processed_file_path.parents:
+            self.logger.debug(
+                'Currently processed file is inside the working dir. ' +
+                'Mapping its path to the source dir is needed to resolve relative path of the included file'
             )
 
-        self.logger.debug(f'Resolved path to the included file: {resolved_file_path}')
+            current_processed_file_path_relative_to_working_dir = (
+                current_processed_file_path.relative_to(self.working_dir.resolve())
+            )
 
-        return resolved_file_path
+            self.logger.debug(
+                'Currently processed Markdown file path relative to working dir: ' +
+                f'{current_processed_file_path_relative_to_working_dir}'
+            )
+
+            current_processed_file_path_mapped_to_src_dir = (
+                self.project_path.resolve() /
+                self.config['src_dir'] /
+                current_processed_file_path_relative_to_working_dir
+            )
+
+            self.logger.debug(
+                'Currently processed Markdown file path mapped to source dir: ' +
+                f'{current_processed_file_path_mapped_to_src_dir}'
+            )
+
+            included_file_path = current_processed_file_path_mapped_to_src_dir.parent / user_specified_path
+
+        else:
+            self.logger.debug(
+                'Currently processed file is outside the working dir. ' +
+                'Using unchanged relative path of the included file'
+            )
+
+            included_file_path = current_processed_file_path.parent / user_specified_path
+
+        self.logger.debug(f'Resolved included file path: {included_file_path}')
+
+        return included_file_path
 
     def _process_include(
             self,
@@ -370,6 +386,8 @@ class Preprocessor(BasePreprocessor):
         :returns: Markdown content with resolved includes
         '''
 
+        markdown_file_path = markdown_file_path.resolve()
+
         self.logger.debug(f'Processing Markdown file: {markdown_file_path}')
 
         processed_content = ''
@@ -397,7 +415,7 @@ class Preprocessor(BasePreprocessor):
 
                     self.logger.debug(f'File in Git repository referenced; URL: {repo_url}, path: {repo_path}')
 
-                    included_file_path = repo_path/body.group('path')
+                    included_file_path = repo_path / body.group('path')
 
                     self.logger.debug(f'Resolved path to the included file: {included_file_path}')
 
@@ -411,7 +429,7 @@ class Preprocessor(BasePreprocessor):
                 else:
                     self.logger.debug('Local file referenced')
 
-                    included_file_path = self._get_local_file_path(body.group('path'), markdown_file_path)
+                    included_file_path = self._get_included_file_path(body.group('path'), markdown_file_path)
 
                     self.logger.debug(f'Resolved path to the included file: {included_file_path}')
 
