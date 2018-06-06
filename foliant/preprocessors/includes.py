@@ -421,10 +421,32 @@ class Preprocessor(BasePreprocessor):
 
                 if body.group('repo'):
                     repo = body.group('repo')
-                    repo_url = self.options['aliases'].get(repo) or repo
-                    repo_path = self._sync_repo(repo_url, body.group('revision'))
+                    repo_from_alias = self.options['aliases'].get(repo)
 
-                    self.logger.debug(f'File in Git repository referenced; URL: {repo_url}, path: {repo_path}')
+                    revision = None
+
+                    if repo_from_alias:
+                        self.logger.debug(f'Alias found: {repo}, resolved as: {repo_from_alias}')
+
+                        if '#' in repo_from_alias:
+                            repo_url, revision = repo_from_alias.split('#', maxsplit=1)
+
+                        else:
+                            repo_url = repo_from_alias
+
+                    else:
+                        repo_url = repo
+
+                    if body.group('revision'):
+                        revision = body.group('revision')
+
+                        self.logger.debug(f'Highest priority revision specified in the include statement: {revision}')
+
+                    self.logger.debug(f'File in Git repository referenced; URL: {repo_url}, revision: {revision}')
+
+                    repo_path = self._sync_repo(repo_url, revision)
+
+                    self.logger.debug(f'Local path of the repo: {repo_path}')
 
                     included_file_path = repo_path / body.group('path')
 
