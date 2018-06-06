@@ -20,7 +20,7 @@ class Preprocessor(BasePreprocessor):
     )
     _image_pattern = re.compile(r'\!\[(?P<caption>.*)\]\((?P<path>((?!:\/\/).)+)\)')
     _tag_body_pattern = re.compile(
-        r'(\$(?P<repo>[^\$]+)\$)?' +
+        r'(\$(?P<repo>[^\#^\$]+)(#(?P<revision>[^\$]+))?\$)?' +
         r'(?P<path>[^\#]+)' +
         r'(\#(?P<from_heading>[^:]*)(:(?P<to_heading>.+))?)?'
     )
@@ -421,9 +421,27 @@ class Preprocessor(BasePreprocessor):
 
                 if body.group('repo'):
                     repo = body.group('repo')
-                    repo_url = self.options['aliases'].get(repo) or repo
-                    revision = repo_url.split('#', maxsplit=1)[1] if '#' in repo_url else None
-                    
+                    repo_from_alias = self.options['aliases'].get(repo)
+
+                    revision = None
+
+                    if repo_from_alias:
+                        self.logger.debug(f'Alias found: {repo}, resolved as: {repo_from_alias}')
+
+                        if '#' in repo_from_alias:
+                            repo_url, revision = repo_from_alias.split('#', maxsplit=1)
+
+                        else:
+                            repo_url = repo_from_alias
+
+                    else:
+                        repo_url = repo
+
+                    if body.group('revision'):
+                        revision = body.group('revision')
+
+                        self.logger.debug(f'Highest priority revision specified in the include statement: {revision}')
+
                     self.logger.debug(f'File in Git repository referenced; URL: {repo_url}, revision: {revision}')
 
                     repo_path = self._sync_repo(repo_url, revision)
