@@ -421,15 +421,9 @@ class Preprocessor(BasePreprocessor):
 
                 if body.group('repo'):
                     repo = body.group('repo')
-                    repo_resolved = self.options['aliases'].get(repo) or repo
-                    repo_parts = repo_resolved.split('#', maxsplit=1)
-
-                    repo_url = repo_parts[0]
-                    revision = None
-
-                    if len(repo_parts) == 2:
-                        revision = repo_parts[1]
-
+                    repo_url = self.options['aliases'].get(repo) or repo
+                    revision = repo_url.split('#', maxsplit=1)[1] if '#' in repo_url else None
+                    
                     self.logger.debug(f'File in Git repository referenced; URL: {repo_url}, revision: {revision}')
 
                     repo_path = self._sync_repo(repo_url, revision)
