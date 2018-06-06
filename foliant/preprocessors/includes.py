@@ -274,6 +274,36 @@ class Preprocessor(BasePreprocessor):
 
         return self._image_pattern.sub(_sub, content)
 
+    def _get_src_file_path(self, markdown_file_path: Path) -> Path:
+        '''Translate the path of Markdown file that is located inside the temporary working directory
+        into the path of the corresponding Markdown file that is located inside the source directory
+        of Foliant project.
+
+        :param markdown_file_path: Path to Markdown file that is located inside the temporary working directory
+
+        :returns: Mapping of Markdown file path to the source directory
+        '''
+
+        path_relative_to_working_dir = markdown_file_path.relative_to(self.working_dir.resolve())
+
+        self.logger.debug(
+            'Currently processed Markdown file path relative to working dir: ' +
+            f'{path_relative_to_working_dir}'
+        )
+
+        path_mapped_to_src_dir = (
+            self.project_path.resolve() /
+            self.config['src_dir'] /
+            path_relative_to_working_dir
+        )
+
+        self.logger.debug(
+            'Currently processed Markdown file path mapped to source dir: ' +
+            f'{path_mapped_to_src_dir}'
+        )
+
+        return path_mapped_to_src_dir
+
     def _get_included_file_path(self, user_specified_path: str, current_processed_file_path: Path) -> Path:
         '''Resolve user specified path to the local included file.
 
@@ -290,36 +320,17 @@ class Preprocessor(BasePreprocessor):
 
         if self.working_dir.resolve() in current_processed_file_path.parents:
             self.logger.debug(
-                'Currently processed file is inside the working dir. ' +
-                'Mapping its path to the source dir is needed to resolve relative path of the included file'
+                'Currently processed file is located inside the working dir. ' +
+                'Its path should be replaced with the path of corresponding file ' +
+                'that is located inside the source dir'
             )
 
-            current_processed_file_path_relative_to_working_dir = (
-                current_processed_file_path.relative_to(self.working_dir.resolve())
-            )
-
-            self.logger.debug(
-                'Currently processed Markdown file path relative to working dir: ' +
-                f'{current_processed_file_path_relative_to_working_dir}'
-            )
-
-            current_processed_file_path_mapped_to_src_dir = (
-                self.project_path.resolve() /
-                self.config['src_dir'] /
-                current_processed_file_path_relative_to_working_dir
-            )
-
-            self.logger.debug(
-                'Currently processed Markdown file path mapped to source dir: ' +
-                f'{current_processed_file_path_mapped_to_src_dir}'
-            )
-
-            included_file_path = current_processed_file_path_mapped_to_src_dir.parent / user_specified_path
+            included_file_path = self._get_src_file_path(current_processed_file_path).parent / user_specified_path
 
         else:
             self.logger.debug(
-                'Currently processed file is outside the working dir. ' +
-                'Using unchanged relative path of the included file'
+                'Currently processed file is located outside the working dir. ' +
+                'Using its path without changes'
             )
 
             included_file_path = current_processed_file_path.parent / user_specified_path
