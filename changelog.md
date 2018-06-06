@@ -1,6 +1,7 @@
 # 1.0.7 (under development)
 
 -   Fix paths resolving in case of recursive processing of include statements.
+-   Allow revision markers in repo aliases.
 
 # 1.0.6
 
