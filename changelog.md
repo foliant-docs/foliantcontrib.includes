@@ -1,3 +1,8 @@
+# 1.0.7
+
+-   Fix paths resolving in case of recursive processing of include statements.
+-   Allow revision markers in repo aliases.
+
 # 1.0.6
 
 -   Fix logging in file search method.

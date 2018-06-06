@@ -48,11 +48,15 @@ preprocessors:
         - includes:
           aliases:
             foo: https://github.com/boo/bar.git
+            baz: https://github.com/foo/far.git#develop
 
     you can include README.md file content from this repository using this syntax:
 
         <<include>$foo$path/to/doc.md</include>
 
+        <<include>$baz#master$path/to/doc.md</include> 
+
+    Note that in the second example we override the default revision.
 
 ## Usage
 
