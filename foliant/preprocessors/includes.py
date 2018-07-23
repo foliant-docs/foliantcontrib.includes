@@ -15,7 +15,7 @@ class Preprocessor(BasePreprocessor):
     tags = 'include',
 
     _heading_pattern = re.compile(
-        r'^(?P<hashes>\#+)\s*(?P<title>[^\#].+\S+)\s*$',
+        r'^(?P<hashes>\#+)\s+(?P<title>[^\#].+\S+)\s*$',
         flags=re.MULTILINE
     )
     _image_pattern = re.compile(r'\!\[(?P<caption>.*)\]\((?P<path>((?!:\/\/).)+)\)')
@@ -161,7 +161,7 @@ class Preprocessor(BasePreprocessor):
 
         self.logger.debug(f'Cutting from heading: {from_heading}, to heading: {to_heading}, options: {options}')
 
-        from_heading_pattern = re.compile(rf'^\#+\s*{from_heading}\s*$', flags=re.MULTILINE)
+        from_heading_pattern = re.compile(rf'^\#+\s+{from_heading}\s*$', flags=re.MULTILINE)
 
         if not from_heading_pattern.findall(content):
             return ''
@@ -174,7 +174,7 @@ class Preprocessor(BasePreprocessor):
         result = from_heading_pattern.split(content)[1]
 
         if to_heading:
-            to_heading_pattern = re.compile(rf'^\#+\s*{to_heading}\s*$', flags=re.MULTILINE)
+            to_heading_pattern = re.compile(rf'^\#+\s+{to_heading}\s*$', flags=re.MULTILINE)
 
         else:
             to_heading_pattern = re.compile(
@@ -236,7 +236,7 @@ class Preprocessor(BasePreprocessor):
         self.logger.debug(f'From heading level: {from_heading_level}')
 
         if to_heading:
-            to_heading_pattern = re.compile(rf'^\#+\s*{to_heading}\s*$', flags=re.MULTILINE)
+            to_heading_pattern = re.compile(rf'^\#+\s+{to_heading}\s*$', flags=re.MULTILINE)
             result = to_heading_pattern.split(result)[0]
 
         if not options.get('nohead'):
