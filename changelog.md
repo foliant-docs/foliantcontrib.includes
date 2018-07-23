@@ -1,3 +1,7 @@
+# 1.0.8
+
+-   Require at least one space after hashes in the beginning of each heading.
+
 # 1.0.7
 
 -   Fix paths resolving in case of recursive processing of include statements.
