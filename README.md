@@ -142,7 +142,7 @@ Include content from "Intro" up to the next heading of the same level:
     Default is `false`.
 
 `inline`
-:   Flag that tells the preprocessor to replace whitespace characters of many kinds (including `\r`, `\n`, and `\t`) with space (` `) in the included content, and then to strip leading and trailing spaces. It may be useful in single-line table cells.
+:   Flag that tells the preprocessor to replace whitespace characters of many kinds (including `\r`, `\n`, and `\t`) with space (` `) in the included content, and then to strip leading and trailing spaces. It may be useful in single-line table cells. Default value is `false`.
 
 Options can be combined. For example, use both `sethead` and `nohead` if you want to include a section with a custom heading:
 
