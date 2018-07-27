@@ -1,6 +1,7 @@
-# 1.0.8
+# 1.0.8 (under development)
 
 -   Require at least one space after hashes in the beginning of each heading.
+-   Add `inline` option to the `<include>` tag.
 
 # 1.0.7
 
