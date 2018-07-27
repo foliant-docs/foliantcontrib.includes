@@ -478,6 +478,11 @@ class Preprocessor(BasePreprocessor):
 
                     processed_content_part = self.process_includes(included_file_path, processed_content_part)
 
+                if options.get('inline'):
+                    self.logger.debug('Processing included content part as inline')
+
+                    processed_content_part = re.sub('\s', ' ', processed_content_part).strip()
+
             else:
                 processed_content_part = content_part
 
