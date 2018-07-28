@@ -481,7 +481,7 @@ class Preprocessor(BasePreprocessor):
                 if options.get('inline'):
                     self.logger.debug('Processing included content part as inline')
 
-                    processed_content_part = re.sub(r'\s', ' ', processed_content_part).strip()
+                    processed_content_part = re.sub(r'\s+', ' ', processed_content_part).strip()
 
             else:
                 processed_content_part = content_part
