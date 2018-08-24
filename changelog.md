@@ -2,6 +2,9 @@
 
 -   Require at least one space after hashes in the beginning of each heading.
 -   Add `inline` option to the `<include>` tag.
+-   Fix the bug: do not ignore empty lines after headings when using `sethead`.
+-   Fix the bug: allow to use less than 3 characters in the heading content.
+-   Do not mark as headings the strings that contain more than 6 leading hashes. If shifted heading level is more than 6, mark the heading content as bold paragraph text, not as heading.
 
 # 1.0.7
 
