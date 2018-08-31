@@ -15,7 +15,7 @@ class Preprocessor(BasePreprocessor):
     tags = 'include',
 
     _heading_pattern = re.compile(
-        r'^(?P<hashes>\#+)\s*(?P<title>[^\#].+\S+)\s*$',
+        r'^(?P<hashes>\#{1,6})\s+(?P<title>.*\S+)(?P<tail>\s*)$',
         flags=re.MULTILINE
     )
     _image_pattern = re.compile(r'\!\[(?P<caption>.*)\]\((?P<path>((?!:\/\/).)+)\)')
@@ -109,9 +109,15 @@ class Preprocessor(BasePreprocessor):
         def _sub(heading):
             new_heading_level = len(heading.group('hashes')) + shift
 
-            self.logger.debug(f'Shift heading level to {new_heading_level}')
+            self.logger.debug(f'Shift heading level to {new_heading_level}, heading title: {heading.group("title")}')
 
-            return f'{"#" * new_heading_level} {heading.group("title")}'
+            if new_heading_level <= 6:
+                return f'{"#" * new_heading_level} {heading.group("title")}{heading.group("tail")}'
+
+            else:
+                self.logger.debug('New heading level is out of range, using bold paragraph text instead of heading')
+
+                return f'**{heading.group("title")}**{heading.group("tail")}'
 
         return self._heading_pattern.sub(_sub, content)
 
@@ -161,7 +167,7 @@ class Preprocessor(BasePreprocessor):
 
         self.logger.debug(f'Cutting from heading: {from_heading}, to heading: {to_heading}, options: {options}')
 
-        from_heading_pattern = re.compile(rf'^\#+\s*{from_heading}\s*$', flags=re.MULTILINE)
+        from_heading_pattern = re.compile(r'^\#{1,6}\s+' + rf'{from_heading}\s*$', flags=re.MULTILINE)
 
         if not from_heading_pattern.findall(content):
             return ''
@@ -174,7 +180,7 @@ class Preprocessor(BasePreprocessor):
         result = from_heading_pattern.split(content)[1]
 
         if to_heading:
-            to_heading_pattern = re.compile(rf'^\#+\s*{to_heading}\s*$', flags=re.MULTILINE)
+            to_heading_pattern = re.compile(r'^\#{1,6}\s+' + rf'{to_heading}\s*$', flags=re.MULTILINE)
 
         else:
             to_heading_pattern = re.compile(
@@ -236,7 +242,7 @@ class Preprocessor(BasePreprocessor):
         self.logger.debug(f'From heading level: {from_heading_level}')
 
         if to_heading:
-            to_heading_pattern = re.compile(rf'^\#+\s*{to_heading}\s*$', flags=re.MULTILINE)
+            to_heading_pattern = re.compile(r'^\#{1,6}\s+' + rf'{to_heading}\s*$', flags=re.MULTILINE)
             result = to_heading_pattern.split(result)[0]
 
         if not options.get('nohead'):
@@ -477,6 +483,11 @@ class Preprocessor(BasePreprocessor):
                     self.logger.debug('Recursive call of include statements processing')
 
                     processed_content_part = self.process_includes(included_file_path, processed_content_part)
+
+                if options.get('inline'):
+                    self.logger.debug('Processing included content part as inline')
+
+                    processed_content_part = re.sub(r'\s+', ' ', processed_content_part).strip()
 
             else:
                 processed_content_part = content_part
