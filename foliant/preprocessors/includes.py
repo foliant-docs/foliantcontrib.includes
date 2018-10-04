@@ -79,7 +79,18 @@ class Preprocessor(BasePreprocessor):
             if repo_path.exists():
                 self.logger.debug('Repo already cloned; pulling from remote')
 
-                run('git pull', cwd=repo_path, shell=True, check=True, stdout=PIPE, stderr=STDOUT)
+                try:
+                    run(
+                        'git pull',
+                        cwd=repo_path,
+                        shell=True,
+                        check=True,
+                        stdout=PIPE,
+                        stderr=STDOUT
+                    )
+
+                except CalledProcessError as exception:
+                    self.logger.warning(str(exception))
 
             else:
                 self.logger.error(str(exception))

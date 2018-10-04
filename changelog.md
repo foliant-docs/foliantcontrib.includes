@@ -1,3 +1,7 @@
+# 1.0.9 (under development)
+
+-   Don't crash on failed repo sync (i.e. when you're offline).
+
 # 1.0.8
 
 -   Require at least one space after hashes in the beginning of each heading.
