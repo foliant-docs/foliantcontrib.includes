@@ -1,6 +1,6 @@
-# 1.0.9 (under development)
+# 1.0.9
 
--   Don't crash on failed repo sync (i.e. when you're offline).
+-   Don’t crash on failed repo sync (i.e. when you’re offline).
 
 # 1.0.8
 
