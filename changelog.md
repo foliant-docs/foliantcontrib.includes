@@ -1,3 +1,7 @@
+# 1.0.10
+
+-   Do not rewrite source Markdown file if an error occurs.
+
 # 1.0.9
 
 -   Don’t crash on failed repo sync (i.e. when you’re offline).
