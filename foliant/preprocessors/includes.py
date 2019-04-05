@@ -335,24 +335,32 @@ class Preprocessor(BasePreprocessor):
 
         self.logger.debug(f'Currently processed Markdown file: {current_processed_file_path}')
 
-        if self.working_dir.resolve() in current_processed_file_path.parents:
+        included_file_path = (current_processed_file_path.parent / user_specified_path).resolve()
+
+        self.logger.debug(f'User-specified included file path: {included_file_path}')
+
+        if (
+            self.working_dir.resolve() in current_processed_file_path.parents
+            and
+            self.working_dir.resolve() not in included_file_path.parents
+        ):
             self.logger.debug(
-                'Currently processed file is located inside the working dir. ' +
-                'Its path should be replaced with the path of corresponding file ' +
+                'Currently processed file is located inside the working dir, ' +
+                'but included file is located outside the working dir. ' +
+                'So currently processed file path should be rewritten with the path of corresponding file ' +
                 'that is located inside the source dir'
             )
 
-            included_file_path = self._get_src_file_path(current_processed_file_path).parent / user_specified_path
+            included_file_path = (
+                self._get_src_file_path(current_processed_file_path).parent / user_specified_path
+            ).resolve()
 
         else:
             self.logger.debug(
-                'Currently processed file is located outside the working dir. ' +
-                'Using its path without changes'
+                'Using these paths without changes'
             )
 
-            included_file_path = current_processed_file_path.parent / user_specified_path
-
-        self.logger.debug(f'Resolved included file path: {included_file_path}')
+        self.logger.debug(f'Finally, included file path: {included_file_path}')
 
         return included_file_path
 
