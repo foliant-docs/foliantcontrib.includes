@@ -1,3 +1,7 @@
+# 1.0.11
+
+-   Take into account the results of work of preprocessors that may be applied before includes within a single Foliant project. Rewrite the currently processed Markdown file path with the path of corresponding file that is located inside the project source directory *only* if the currently processed Markdown file is located inside the temporary working directory *and* the included file is located outside the temporary working directory. Keep all paths unchanged in all other cases.
+
 # 1.0.10
 
 -   Do not rewrite source Markdown file if an error occurs.
