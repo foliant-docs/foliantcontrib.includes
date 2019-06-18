@@ -1,3 +1,9 @@
+# 1.0.12
+
+-   In included files convert paths in tag parameters, which are specified with modifiers !rel_path, !project_path and !path into correct absolute paths. By default the project root for !project_path and !path modifiers is either the current project root, or repository root if it is import from remote repo.
+-   Add optional project_root parameter for imports from remote repos. If it is specified — the project root is considered repo_root/project_root_param_value. For local imports this parameter is ignored
+-   Add src parameter for specifying the path to included file. This parameter has priority over specifying path in the body. This parameter supports Foliant 1.0.9 modifiers !project_path and !rel_path
+
 # 1.0.11
 
 -   Take into account the results of work of preprocessors that may be applied before includes within a single Foliant project. Rewrite the currently processed Markdown file path with the path of corresponding file that is located inside the project source directory *only* if the currently processed Markdown file is located inside the temporary working directory *and* the included file is located outside the temporary working directory. Keep all paths unchanged in all other cases.

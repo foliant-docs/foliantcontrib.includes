@@ -291,6 +291,55 @@ class Preprocessor(BasePreprocessor):
 
         return self._image_pattern.sub(_sub, content)
 
+    def _adjust_paths_in_tag_params(self,
+                                    content: str,
+                                    modifier: str,
+                                    parent_path: Path) -> str:
+        '''Locate tags in Markdown string; replace in tag params all paths,
+        referenced  with modifier (for example !rel_path), with absolute ones,
+        relative to parent_path.
+
+        :param content: Markdown content
+        :param modifier: Only paths prefixed with this modifier will be replaced
+        :param parent_path: Pahts will be resolved relative to this parent path
+
+        :returns: Markdown content with absolute paths in tag params
+        '''
+        def sub_tag(match):
+            def sub_path_param(match):
+                quote = match.group("quote")
+                modifier = match.group("modifier")
+                path_ = (parent_path / match.group("path")).absolute()
+                adjusted_path = f'{quote}{modifier}{path_}{quote}'
+
+                self.logger.debug(
+                    f'Updating path in tag parameter; user specified path: {modifier}{match.group("path")}, '
+                    f'absolute path: {adjusted_path}'
+                )
+
+                return adjusted_path
+
+            path_param_pattern = re.compile(
+                r'''(?P<quote>'|")'''
+                rf'(?P<modifier>\s*{modifier}\s+)'
+                r'(?P<path>.+?)'
+                r'(?P=quote)',
+                re.DOTALL
+            )
+
+            open_tag = path_param_pattern.sub(sub_path_param, match.group('open_tag'))
+            body = match.group("body")
+            close_tag = match.group("close_tag")
+            return f'{open_tag}{body}{close_tag}'
+
+        tag_pattern = re.compile(
+            r'(?<!<)(?P<open_tag><(?P<tag>\S+)(?:\s[^<>]*)?>)'
+            r'(?P<body>.*?)'
+            r'(?P<close_tag></(?P=tag)>)',
+            re.DOTALL
+        )
+        return tag_pattern.sub(sub_tag, content)
+
     def _get_src_file_path(self, markdown_file_path: Path) -> Path:
         '''Translate the path of Markdown file that is located inside the temporary working directory
         into the path of the corresponding Markdown file that is located inside the source directory
@@ -367,6 +416,7 @@ class Preprocessor(BasePreprocessor):
     def _process_include(
             self,
             file_path: Path,
+            project_root: Path,
             from_heading: str or None = None,
             to_heading: str or None = None,
             options={}
@@ -387,6 +437,8 @@ class Preprocessor(BasePreprocessor):
             f'Included file path: {file_path}, from heading: {from_heading}, ' +
             f'to heading: {to_heading}, options: {options}'
         )
+
+        self.logger.debug(f'Project root for include is set to: {project_root}')
 
         if file_path.name.startswith('^'):
             file_path = self._find_file(file_path.name[1:], file_path.parent)
@@ -410,10 +462,22 @@ class Preprocessor(BasePreprocessor):
                 )
 
             incl_content = self._adjust_image_paths(incl_content, file_path)
+            incl_content = self._adjust_paths_in_tag_params(incl_content,
+                                                            '!rel_path',
+                                                            file_path.parent)
+            incl_content = self._adjust_paths_in_tag_params(incl_content,
+                                                            '!project_path',
+                                                            project_root)
+            incl_content = self._adjust_paths_in_tag_params(incl_content,
+                                                            '!path',
+                                                            project_root)
 
         return incl_content
 
-    def process_includes(self, markdown_file_path: Path, content: str) -> str:
+    def process_includes(self,
+                         markdown_file_path: Path,
+                         content: str,
+                         project_root: Path) -> str:
         '''Replace all include statements with the respective file contents.
 
         :param markdown_file_path: Path to curently processed Markdown file
@@ -427,7 +491,6 @@ class Preprocessor(BasePreprocessor):
         self.logger.debug(f'Processing Markdown file: {markdown_file_path}')
 
         processed_content = ''
-
         include_statement_pattern = re.compile(
             rf'((?<!\<)\<{"|".join(self.tags)}(?:\s[^\<\>]*)?\>.*?\<\/{"|".join(self.tags)}\>)',
             flags=re.DOTALL
@@ -439,13 +502,21 @@ class Preprocessor(BasePreprocessor):
             include_statement = self.pattern.fullmatch(content_part)
 
             if include_statement:
-                body = self._tag_body_pattern.match(include_statement.group('body').strip())
+                l_project_root = project_root  # reset project root before each new include
+
                 options = self.get_options(include_statement.group('options'))
 
-                self.logger.debug(f'Processing include statement; body: {body}, options: {options}')
+                if 'src' in options:  # path to file specified in src param (higher priority)
+                    ref = self._tag_body_pattern.match(str(options['src']))
+                else:  # path to file specified in tag body
+                    ref = self._tag_body_pattern.match(include_statement.group('body').strip())
 
-                if body.group('repo'):
-                    repo = body.group('repo')
+                self.logger.debug(f'Processing include statement; body: {ref}, options: {options}')
+
+                repo_path = None  # init variable
+
+                if ref.group('repo'):
+                    repo = ref.group('repo')
                     repo_from_alias = self.options['aliases'].get(repo)
 
                     revision = None
@@ -462,8 +533,8 @@ class Preprocessor(BasePreprocessor):
                     else:
                         repo_url = repo
 
-                    if body.group('revision'):
-                        revision = body.group('revision')
+                    if ref.group('revision'):
+                        revision = ref.group('revision')
 
                         self.logger.debug(f'Highest priority revision specified in the include statement: {revision}')
 
@@ -471,37 +542,43 @@ class Preprocessor(BasePreprocessor):
 
                     repo_path = self._sync_repo(repo_url, revision)
 
+                    l_project_root = repo_path / options.get('project_root', '')
+
                     self.logger.debug(f'Local path of the repo: {repo_path}')
 
-                    included_file_path = repo_path / body.group('path')
+                    included_file_path = repo_path / ref.group('path')
 
                     self.logger.debug(f'Resolved path to the included file: {included_file_path}')
 
                     processed_content_part = self._process_include(
                         included_file_path,
-                        body.group('from_heading'),
-                        body.group('to_heading'),
+                        l_project_root,
+                        ref.group('from_heading'),
+                        ref.group('to_heading'),
                         options
                     )
 
                 else:
                     self.logger.debug('Local file referenced')
 
-                    included_file_path = self._get_included_file_path(body.group('path'), markdown_file_path)
+                    included_file_path = self._get_included_file_path(ref.group('path'), markdown_file_path)
 
                     self.logger.debug(f'Resolved path to the included file: {included_file_path}')
 
                     processed_content_part = self._process_include(
                         included_file_path,
-                        body.group('from_heading'),
-                        body.group('to_heading'),
+                        l_project_root,
+                        ref.group('from_heading'),
+                        ref.group('to_heading'),
                         options
                     )
 
                 if self.options['recursive'] and self.pattern.search(processed_content_part):
                     self.logger.debug('Recursive call of include statements processing')
 
-                    processed_content_part = self.process_includes(included_file_path, processed_content_part)
+                    processed_content_part = self.process_includes(included_file_path,
+                                                                   processed_content_part,
+                                                                   l_project_root)
 
                 if options.get('inline'):
                     self.logger.debug('Processing included content part as inline')
@@ -524,7 +601,6 @@ class Preprocessor(BasePreprocessor):
 
         self.logger.debug(f'Preprocessor inited: {self.__dict__}')
 
-
     def apply(self):
         self.logger.info('Applying preprocessor')
 
@@ -532,7 +608,9 @@ class Preprocessor(BasePreprocessor):
             with open(markdown_file_path, encoding='utf8') as markdown_file:
                 content = markdown_file.read()
 
-            processed_content = self.process_includes(markdown_file_path, content)
+            processed_content = self.process_includes(markdown_file_path,
+                                                      content,
+                                                      self.project_path)
 
             if processed_content:
                 with open(markdown_file_path, 'w', encoding='utf8') as markdown_file:
