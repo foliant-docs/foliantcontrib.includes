@@ -1,8 +1,10 @@
-# 1.0.12
+# 1.1.0 (under development)
 
--   In included files convert paths in tag parameters, which are specified with modifiers !rel_path, !project_path and !path into correct absolute paths. By default the project root for !project_path and !path modifiers is either the current project root, or repository root if it is import from remote repo.
--   Add optional project_root parameter for imports from remote repos. If it is specified — the project root is considered repo_root/project_root_param_value. For local imports this parameter is ignored
--   Add src parameter for specifying the path to included file. This parameter has priority over specifying path in the body. This parameter supports Foliant 1.0.9 modifiers !project_path and !rel_path
+-   Support Foliant 1.0.9. Add processing of `!path`, `!project_path`, and `!rel_path` modifiers (i.e. YAML tags) in attribute values of pseudo-XML tags inside the included content. Replace the values that preceded by these modifiers with absolute paths resolved depending on current context.
+-   Allow to specify the root directory of Foliant project that the included file belongs to, with optional `project_root` attribute of the `<include>` tag. This can be necessary to resolve the `!path` and the `!project_path` modifiers in the included content correctly.
+-   Allow to specify all necessary parameters of each include statement as attribute values of pseudo-XML tags. Keep legacy syntax for backward compatibility.
+-   [TODO] Decompose the source code of the preprocessor into several modules.
+-   [TODO] Update README.
 
 # 1.0.11
 

@@ -25,7 +25,20 @@ class Preprocessor(BasePreprocessor):
         r'(\#(?P<from_heading>[^:]*)(:(?P<to_heading>.+))?)?'
     )
 
-    def _find_file(self, file_name: str, lookup_dir: Path) -> Path or None:
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self._cache_path = self.project_path / self.options['cache_dir']
+
+        self.logger = self.logger.getChild('includes')
+
+        self.logger.debug(f'Preprocessor inited: {self.__dict__}')
+
+    def _find_file(
+            self,
+            file_name: str,
+            lookup_dir: Path
+        ) -> Path or None:
         '''Find a file in a directory by name. Check subdirectories recursively.
 
         :param file_name: Name of the file
@@ -35,7 +48,7 @@ class Preprocessor(BasePreprocessor):
         :raises: FileNotFoundError
         '''
 
-        self.logger.debug('Trying to find the file {file_name} inside the directory {lookup_dir}')
+        self.logger.debug(f'Trying to find the file {file_name} inside the directory {lookup_dir}')
 
         result = None
 
@@ -46,11 +59,15 @@ class Preprocessor(BasePreprocessor):
         else:
             raise FileNotFoundError(file_name)
 
-        self.logger.debug('File found: {result}')
+        self.logger.debug(f'File found: {result}')
 
         return result
 
-    def _sync_repo(self, repo_url: str, revision: str or None = None) -> Path:
+    def _sync_repo(
+            self,
+            repo_url: str,
+            revision: str or None = None
+        ) -> Path:
         '''Clone a Git repository to the cache dir. If it has been cloned before, update it.
 
         :param repo_url: Repository URL
@@ -107,9 +124,13 @@ class Preprocessor(BasePreprocessor):
 
         return repo_path
 
-    def _shift_headings(self, content: str, shift: int) -> str:
-        '''Shift Markdown headings in a string by a given value. The shift can
-        be positive or negative.
+    def _shift_headings(
+            self,
+            content: str,
+            shift: int
+        ) -> str:
+        '''Shift Markdown headings in a string by a given value. The shift
+        can be positive or negative.
 
         :param content: Markdown content
         :param shift: Heading shift
@@ -132,7 +153,10 @@ class Preprocessor(BasePreprocessor):
 
         return self._heading_pattern.sub(_sub, content)
 
-    def _find_top_heading_level(self, content: str) -> int:
+    def _find_top_heading_level(
+            self,
+            content: str
+        ) -> int:
         '''Find the highest level heading (i.e. having the least '#'s)
         in a Markdown string.
 
@@ -158,7 +182,8 @@ class Preprocessor(BasePreprocessor):
             content: str,
             from_heading: str,
             to_heading: str or None = None,
-            options={}
+            sethead: int or None = None,
+            nohead: bool = False
         ) -> str:
         '''Cut part of Markdown string between two headings, set internal heading level,
         and remove top heading.
@@ -171,12 +196,16 @@ class Preprocessor(BasePreprocessor):
         :param content: Markdown content
         :param from_heading: Starting heading
         :param to_heading: Ending heading (will not be incuded in the output)
-        :param options: ``sethead``, ``nohead``
+        :param sethead: Level of the topmost heading in the included content
+        :param nohead: Flag that tells to strip the starting heading from the included content
 
         :returns: Part of the Markdown content between headings with internal headings adjusted
         '''
 
-        self.logger.debug(f'Cutting from heading: {from_heading}, to heading: {to_heading}, options: {options}')
+        self.logger.debug(
+            f'Cutting from heading: {from_heading}, to heading: {to_heading}, ' +
+            f'sethead: {sethead}, nohead: {nohead}'
+        )
 
         from_heading_pattern = re.compile(r'^\#{1,6}\s+' + rf'{from_heading}\s*$', flags=re.MULTILINE)
 
@@ -201,14 +230,14 @@ class Preprocessor(BasePreprocessor):
 
         result = to_heading_pattern.split(result)[0]
 
-        if not options.get('nohead'):
+        if not nohead:
             result = from_heading_line + result
 
-        if options.get('sethead'):
-            if options['sethead'] > 0:
+        if sethead:
+            if sethead > 0:
                 result = self._shift_headings(
                     result,
-                    options['sethead'] - from_heading_level
+                    sethead - from_heading_level
                 )
 
         return result
@@ -217,24 +246,26 @@ class Preprocessor(BasePreprocessor):
             self,
             content: str,
             to_heading: str or None = None,
-            options={}
+            sethead: int or None = None,
+            nohead: bool = False
         ) -> str:
         '''Cut part of Markdown string from the start to a certain heading,
         set internal heading level, and remove top heading.
 
-        If not heading is defined, the whole string is returned.
+        If heading is not defined, the whole string is returned.
 
         Heading shift and top heading elimination are optional.
 
         :param content: Markdown content
         :param to_heading: Ending heading (will not be incuded in the output)
-        :param options: ``sethead``, ``nohead``
+        :param sethead: Level of the topmost heading in the included content
+        :param nohead: Flag that tells to strip the starting heading from the included content
 
         :returns: Part of the Markdown content from the start to ``to_heading``,
             with internal headings adjusted
         '''
 
-        self.logger.debug(f'Cutting to heading: {to_heading}, options: {options}')
+        self.logger.debug(f'Cutting to heading: {to_heading}, sethead: {sethead}, nohead: {nohead}')
 
         content_buffer = StringIO(content)
 
@@ -256,91 +287,106 @@ class Preprocessor(BasePreprocessor):
             to_heading_pattern = re.compile(r'^\#{1,6}\s+' + rf'{to_heading}\s*$', flags=re.MULTILINE)
             result = to_heading_pattern.split(result)[0]
 
-        if not options.get('nohead'):
+        if not nohead:
             result = from_heading_line + result
 
-        if options.get('sethead'):
-            if options['sethead'] > 0:
+        if sethead:
+            if sethead > 0:
                 result = self._shift_headings(
                     result,
-                    options['sethead'] - from_heading_level
+                    sethead - from_heading_level
                 )
 
         return result
 
-    def _adjust_image_paths(self, content: str, md_file_path: Path) -> str:
+    def _adjust_image_paths(
+            self,
+            content: str,
+            markdown_file_path: Path
+        ) -> str:
         '''Locate images referenced in a Markdown string and replace their paths
         with the absolute ones.
 
         :param content: Markdown content
-        :param md_file_path: Path to the Markdown file containing the content
+        :param markdown_file_path: Path to the Markdown file containing the content
 
         :returns: Markdown content with absolute image paths
         '''
 
         def _sub(image):
             image_caption = image.group('caption')
-            image_path = md_file_path.parent / Path(image.group('path'))
+            image_path = (markdown_file_path.parent / Path(image.group('path'))).resolve()
 
             self.logger.debug(
                 f'Updating image reference; user specified path: {image.group("path")}, ' +
                 f'absolute path: {image_path}, caption: {image_caption}'
             )
 
-            return f'![{image_caption}]({image_path.absolute().as_posix()})'
+            return f'![{image_caption}]({image_path})'
 
         return self._image_pattern.sub(_sub, content)
 
-    def _adjust_paths_in_tag_params(self,
-                                    content: str,
-                                    modifier: str,
-                                    parent_path: Path) -> str:
-        '''Locate tags in Markdown string; replace in tag params all paths,
-        referenced  with modifier (for example !rel_path), with absolute ones,
-        relative to parent_path.
+    def _adjust_paths_in_tags_attributes(
+            self,
+            content: str,
+            modifier: str,
+            base_path: Path
+        ) -> str:
+        '''Locate pseudo-XML tags in Markdown string. Replace the paths
+        that are specified as values of pseudo-XML tags attributes
+        preceded by modifiers (i.e. YAML tags such as ``!path``)
+        with absolute ones based on ``base_path``.
 
         :param content: Markdown content
-        :param modifier: Only paths prefixed with this modifier will be replaced
-        :param parent_path: Pahts will be resolved relative to this parent path
+        :param modifier: Modifier (i.e. YAML tag) that precedes an attribute value
+        :param base_path: Base path that the replaced paths must be relative to
 
-        :returns: Markdown content with absolute paths in tag params
+        :returns: Markdown content with absolute paths in attributes
+            of pseudo-XML tags
         '''
+
         def sub_tag(match):
-            def sub_path_param(match):
-                quote = match.group("quote")
-                modifier = match.group("modifier")
-                path_ = (parent_path / match.group("path")).absolute()
-                adjusted_path = f'{quote}{modifier}{path_}{quote}'
+            def sub_path_attribute(match):
+                quote = match.group('quote')
+                modifier = match.group('modifier')
+                resolved_path = (base_path / match.group('path')).resolve()
+                adjusted_quoted_attribute_value = f'{quote}{modifier}{resolved_path}{quote}'
 
                 self.logger.debug(
-                    f'Updating path in tag parameter; user specified path: {modifier}{match.group("path")}, '
-                    f'absolute path: {adjusted_path}'
+                    'Updating path in tag attribute value; ' +
+                    f'user specified value: {quote}{modifier}{match.group("path")}{quote}, ' +
+                    f'adjusted value: {adjusted_quoted_attribute_value}'
                 )
 
-                return adjusted_path
+                return adjusted_quoted_attribute_value
 
-            path_param_pattern = re.compile(
-                r'''(?P<quote>'|")'''
-                rf'(?P<modifier>\s*{modifier}\s+)'
-                r'(?P<path>.+?)'
+            path_attribute_pattern = re.compile(
+                r'''(?P<quote>'|")''' +
+                rf'(?P<modifier>\s*{modifier}\s+)' +
+                r'(?P<path>.+?)' +
                 r'(?P=quote)',
                 re.DOTALL
             )
 
-            open_tag = path_param_pattern.sub(sub_path_param, match.group('open_tag'))
-            body = match.group("body")
-            close_tag = match.group("close_tag")
-            return f'{open_tag}{body}{close_tag}'
+            open_tag = path_attribute_pattern.sub(sub_path_attribute, match.group('open_tag'))
+            body = match.group('body')
+            closing_tag = match.group('closing_tag')
+
+            return f'{open_tag}{body}{closing_tag}'
 
         tag_pattern = re.compile(
             r'(?<!<)(?P<open_tag><(?P<tag>\S+)(?:\s[^<>]*)?>)'
             r'(?P<body>.*?)'
-            r'(?P<close_tag></(?P=tag)>)',
+            r'(?P<closing_tag></(?P=tag)>)',
             re.DOTALL
         )
+
         return tag_pattern.sub(sub_tag, content)
 
-    def _get_src_file_path(self, markdown_file_path: Path) -> Path:
+    def _get_src_file_path(
+            self,
+            markdown_file_path: Path
+        ) -> Path:
         '''Translate the path of Markdown file that is located inside the temporary working directory
         into the path of the corresponding Markdown file that is located inside the source directory
         of Foliant project.
@@ -370,7 +416,11 @@ class Preprocessor(BasePreprocessor):
 
         return path_mapped_to_src_dir
 
-    def _get_included_file_path(self, user_specified_path: str, current_processed_file_path: Path) -> Path:
+    def _get_included_file_path(
+            self,
+            user_specified_path: str or Path,
+            current_processed_file_path: Path
+        ) -> Path:
         '''Resolve user specified path to the local included file.
 
         :param user_specified_path: User specified string that represents
@@ -415,73 +465,88 @@ class Preprocessor(BasePreprocessor):
 
     def _process_include(
             self,
-            file_path: Path,
-            project_root: Path,
+            included_file_path: Path,
+            project_root_path: Path or None = None,
             from_heading: str or None = None,
             to_heading: str or None = None,
-            options={}
-        ) -> str:
+            sethead: int or None = None,
+            nohead: bool = False
+        ):
         '''Replace a local include statement with the file content. Necessary
         adjustments are applied to the content: cut between certain headings,
         strip the top heading, set heading level.
 
-        :param file_path: Path to the included file
+        :param included_file_path: Path to the included file
+        :param project_root_path: Path to the “root” directory of Foliant project
+            that the currently processed Markdown file belongs to
         :param from_heading: Include starting from this heading
         :param to_heading: Include up to this heading (not including the heading itself)
-        :param options: ``sethead``, ``nohead``
+        :param sethead: Level of the topmost heading in the included content
+        :param nohead: Flag that tells to strip the starting heading from the included content
 
         :returns: Included file content
         '''
 
         self.logger.debug(
-            f'Included file path: {file_path}, from heading: {from_heading}, ' +
-            f'to heading: {to_heading}, options: {options}'
+            f'Included file path: {included_file_path}, from heading: {from_heading}, ' +
+            f'to heading: {to_heading}, sethead: {sethead}, nohead: {nohead}'
         )
 
-        self.logger.debug(f'Project root for include is set to: {project_root}')
-
-        if file_path.name.startswith('^'):
-            file_path = self._find_file(file_path.name[1:], file_path.parent)
-
-        with open(file_path, encoding='utf8') as incl_file:
-            incl_content = incl_file.read()
+        with open(included_file_path, encoding='utf8') as included_file:
+            included_content = included_file.read()
 
             if from_heading:
-                incl_content = self._cut_from_heading_to_heading(
-                    incl_content,
+                included_content = self._cut_from_heading_to_heading(
+                    included_content,
                     from_heading,
                     to_heading,
-                    options
+                    sethead,
+                    nohead
                 )
 
             else:
-                incl_content = self._cut_to_heading(
-                    incl_content,
+                included_content = self._cut_to_heading(
+                    included_content,
                     to_heading,
-                    options
+                    sethead,
+                    nohead
                 )
 
-            incl_content = self._adjust_image_paths(incl_content, file_path)
-            incl_content = self._adjust_paths_in_tag_params(incl_content,
-                                                            '!rel_path',
-                                                            file_path.parent)
-            incl_content = self._adjust_paths_in_tag_params(incl_content,
-                                                            '!project_path',
-                                                            project_root)
-            incl_content = self._adjust_paths_in_tag_params(incl_content,
-                                                            '!path',
-                                                            project_root)
+            included_content = self._adjust_image_paths(included_content, included_file_path)
 
-        return incl_content
+            if project_root_path:
+                included_content = self._adjust_paths_in_tags_attributes(
+                    included_content,
+                    '!path',
+                    project_root_path
+                )
 
-    def process_includes(self,
-                         markdown_file_path: Path,
-                         content: str,
-                         project_root: Path) -> str:
+                included_content = self._adjust_paths_in_tags_attributes(
+                    included_content,
+                    '!project_path',
+                    project_root_path
+                )
+
+            included_content = self._adjust_paths_in_tags_attributes(
+                included_content,
+                '!rel_path',
+                included_file_path.parent
+            )
+
+        return included_content
+
+    def process_includes(
+            self,
+            markdown_file_path: Path,
+            content: str,
+            project_root_path: Path or None = None
+        ) -> str:
         '''Replace all include statements with the respective file contents.
 
-        :param markdown_file_path: Path to curently processed Markdown file
+        :param markdown_file_path: Path to currently processed Markdown file
         :param content: Markdown content
+        :param project_root_path: Path to the “root” directory of Foliant project
+            that the currently processed Markdown file belongs to
 
         :returns: Markdown content with resolved includes
         '''
@@ -491,6 +556,7 @@ class Preprocessor(BasePreprocessor):
         self.logger.debug(f'Processing Markdown file: {markdown_file_path}')
 
         processed_content = ''
+
         include_statement_pattern = re.compile(
             rf'((?<!\<)\<{"|".join(self.tags)}(?:\s[^\<\>]*)?\>.*?\<\/{"|".join(self.tags)}\>)',
             flags=re.DOTALL
@@ -502,83 +568,194 @@ class Preprocessor(BasePreprocessor):
             include_statement = self.pattern.fullmatch(content_part)
 
             if include_statement:
-                l_project_root = project_root  # reset project root before each new include
+                # Reset current project root before each new include statement
+                current_project_root_path = project_root_path
 
+                body = self._tag_body_pattern.match(include_statement.group('body').strip())
                 options = self.get_options(include_statement.group('options'))
 
-                if 'src' in options:  # path to file specified in src param (higher priority)
-                    ref = self._tag_body_pattern.match(str(options['src']))
-                else:  # path to file specified in tag body
-                    ref = self._tag_body_pattern.match(include_statement.group('body').strip())
+                self.logger.debug(
+                    f'Processing include statement; body: {body}, options: {options}, ' +
+                    f'current project root path: {current_project_root_path}'
+                )
 
-                self.logger.debug(f'Processing include statement; body: {ref}, options: {options}')
+                # If the tag body is not empty, the legacy syntax is expected:
+                #
+                # <include sethead="..." nohead="..." inline="..." project_root="...">
+                # (repo_url#revision$path|src)#from_heading:to_heading
+                # </include>
+                #
+                # If the tag body is empty, the new syntax is expected:
+                #
+                # <include
+                #     repo_url="..."
+                #     revision="..."
+                #     path="..."
+                #     project_root="..."
+                #     src="..."
+                #     find="..."
+                #     from_heading="..."
+                #     to_heading="..."
+                #     from_id="..."
+                #     to_id="..."
+                #     sethead="..."
+                #     nohead="..."
+                #     inline="..."
+                # >
+                # </include>
 
-                repo_path = None  # init variable
+                if body:
+                    self.logger.debug('Using the legacy syntax rules')
 
-                if ref.group('repo'):
-                    repo = ref.group('repo')
-                    repo_from_alias = self.options['aliases'].get(repo)
+                    if body.group('repo'):
+                        self.logger.debug('File in Git repository referenced')
 
-                    revision = None
+                        repo_from_alias = self.options['aliases'].get(body.group('repo'))
 
-                    if repo_from_alias:
-                        self.logger.debug(f'Alias found: {repo}, resolved as: {repo_from_alias}')
+                        revision = None
 
-                        if '#' in repo_from_alias:
-                            repo_url, revision = repo_from_alias.split('#', maxsplit=1)
+                        if repo_from_alias:
+                            self.logger.debug(f'Alias found: {body.group("repo")}, resolved as: {repo_from_alias}')
+
+                            if '#' in repo_from_alias:
+                                repo_url, revision = repo_from_alias.split('#', maxsplit=1)
+
+                            else:
+                                repo_url = repo_from_alias
 
                         else:
-                            repo_url = repo_from_alias
+                            repo_url = body.group('repo')
+
+                        if body.group('revision'):
+                            revision = body.group('revision')
+
+                            self.logger.debug(
+                                f'Highest priority revision specified in the include statement: {revision}'
+                            )
+
+                        self.logger.debug(f'Repo URL: {repo_url}, revision: {revision}')
+
+                        repo_path = self._sync_repo(repo_url, revision)
+
+                        self.logger.debug(f'Local path of the repo: {repo_path}')
+
+                        included_file_path = repo_path / body.group('path')
+
+                        if included_file_path.name.startswith('^'):
+                            included_file_path = self._find_file(
+                                included_file_path.name[1:], included_file_path.parent
+                            )
+
+                        self.logger.debug(f'Resolved path to the included file: {included_file_path}')
+
+                        current_project_root_path = (
+                            repo_path / options.get('project_root', '')
+                        ).resolve()
+
+                        self.logger.debug(f'Set new current project root path: {current_project_root_path}')
+
+                        processed_content_part = self._process_include(
+                            included_file_path,
+                            current_project_root_path,
+                            body.group('from_heading'),
+                            body.group('to_heading'),
+                            options.get('sethead'),
+                            options.get('nohead')
+                        )
 
                     else:
-                        repo_url = repo
+                        self.logger.debug('Local file referenced')
 
-                    if ref.group('revision'):
-                        revision = ref.group('revision')
+                        included_file_path = self._get_included_file_path(body.group('path'), markdown_file_path)
 
-                        self.logger.debug(f'Highest priority revision specified in the include statement: {revision}')
+                        if included_file_path.name.startswith('^'):
+                            included_file_path = self._find_file(
+                                included_file_path.name[1:], included_file_path.parent
+                            )
 
-                    self.logger.debug(f'File in Git repository referenced; URL: {repo_url}, revision: {revision}')
+                        self.logger.debug(f'Resolved path to the included file: {included_file_path}')
 
-                    repo_path = self._sync_repo(repo_url, revision)
+                        if options.get('project_root'):
+                            current_project_root_path = (
+                                markdown_file_path.parent / options.get('project_root')
+                            ).resolve()
 
-                    l_project_root = repo_path / options.get('project_root', '')
+                            self.logger.debug(f'Set new current project root path: {current_project_root_path}')
 
-                    self.logger.debug(f'Local path of the repo: {repo_path}')
-
-                    included_file_path = repo_path / ref.group('path')
-
-                    self.logger.debug(f'Resolved path to the included file: {included_file_path}')
-
-                    processed_content_part = self._process_include(
-                        included_file_path,
-                        l_project_root,
-                        ref.group('from_heading'),
-                        ref.group('to_heading'),
-                        options
-                    )
+                        processed_content_part = self._process_include(
+                            included_file_path,
+                            current_project_root_path,
+                            body.group('from_heading'),
+                            body.group('to_heading'),
+                            options.get('sethead'),
+                            options.get('nohead')
+                        )
 
                 else:
-                    self.logger.debug('Local file referenced')
+                    self.logger.debug('Using the new syntax rules')
 
-                    included_file_path = self._get_included_file_path(ref.group('path'), markdown_file_path)
+                    if options.get('repo_url'):
+                        self.logger.debug('File in Git repository referenced')
 
-                    self.logger.debug(f'Resolved path to the included file: {included_file_path}')
+                        repo_path = self._sync_repo(options.get('repo_url'), options.get('revision'))
 
-                    processed_content_part = self._process_include(
-                        included_file_path,
-                        l_project_root,
-                        ref.group('from_heading'),
-                        ref.group('to_heading'),
-                        options
-                    )
+                        self.logger.debug(f'Local path of the repo: {repo_path}')
+
+                        included_file_path = repo_path / options.get('path')
+
+                        self.logger.debug(f'Resolved path to the included file: {included_file_path}')
+
+                        current_project_root_path = (
+                            repo_path / options.get('project_root', '')
+                        ).resolve()
+
+                        self.logger.debug(f'Set new current project root path: {current_project_root_path}')
+
+                        processed_content_part = self._process_include(
+                            included_file_path,
+                            current_project_root_path,
+                            options.get('from_heading'),
+                            options.get('to_heading'),
+                            options.get('sethead'),
+                            options.get('nohead')
+                        )
+
+                    elif options.get('src'):
+                        self.logger.debug('Local file referenced')
+
+                        included_file_path = self._get_included_file_path(options.get('src'), markdown_file_path)
+
+                        self.logger.debug(f'Resolved path to the included file: {included_file_path}')
+
+                        if options.get('project_root'):
+                            current_project_root_path = (
+                                markdown_file_path.parent / options.get('project_root')
+                            ).resolve()
+
+                            self.logger.debug(f'Set new current project root path: {current_project_root_path}')
+
+                        processed_content_part = self._process_include(
+                            included_file_path,
+                            current_project_root_path,
+                            options.get('from_heading'),
+                            options.get('to_heading'),
+                            options.get('sethead'),
+                            options.get('nohead')
+                        )
+
+                    else:
+                        self.logger.warning("Neither repo_url nor src is specified, ignoring the include statement")
+
+                        processed_content_part = ''
 
                 if self.options['recursive'] and self.pattern.search(processed_content_part):
                     self.logger.debug('Recursive call of include statements processing')
 
-                    processed_content_part = self.process_includes(included_file_path,
-                                                                   processed_content_part,
-                                                                   l_project_root)
+                    processed_content_part = self.process_includes(
+                        included_file_path,
+                        processed_content_part,
+                        current_project_root_path
+                    )
 
                 if options.get('inline'):
                     self.logger.debug('Processing included content part as inline')
@@ -592,15 +769,6 @@ class Preprocessor(BasePreprocessor):
 
         return processed_content
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self._cache_path = self.project_path / self.options['cache_dir']
-
-        self.logger = self.logger.getChild('includes')
-
-        self.logger.debug(f'Preprocessor inited: {self.__dict__}')
-
     def apply(self):
         self.logger.info('Applying preprocessor')
 
@@ -608,9 +776,11 @@ class Preprocessor(BasePreprocessor):
             with open(markdown_file_path, encoding='utf8') as markdown_file:
                 content = markdown_file.read()
 
-            processed_content = self.process_includes(markdown_file_path,
-                                                      content,
-                                                      self.project_path)
+            processed_content = self.process_includes(
+                markdown_file_path,
+                content,
+                self.project_path.resolve()
+            )
 
             if processed_content:
                 with open(markdown_file_path, 'w', encoding='utf8') as markdown_file:
