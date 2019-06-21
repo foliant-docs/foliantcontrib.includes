@@ -626,7 +626,7 @@ class Preprocessor(BasePreprocessor):
                 #     repo_url="..." revision="..." path="..." | src="..."
                 #     project_root="..."
                 #     from_heading="..." to_heading="..."
-                #     from_hid="..." to_hid="..."
+                #     from_id="..." to_id="..."
                 #     sethead="..." nohead="..." inline="..."
                 # ></include>
 
