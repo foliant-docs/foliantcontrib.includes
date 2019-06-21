@@ -15,12 +15,12 @@ class Preprocessor(BasePreprocessor):
     tags = 'include',
 
     _heading_pattern = re.compile(
-        r'^(?P<hashes>\#{1,6})\s+(?P<title>.*\S+)(?P<tail>\s*)$',
+        r'^(?P<hashes>\#{1,6})\s+(?P<content>.*\S+)(?P<tail>\s*)$',
         flags=re.MULTILINE
     )
     _image_pattern = re.compile(r'\!\[(?P<caption>.*)\]\((?P<path>((?!:\/\/).)+)\)')
     _tag_body_pattern = re.compile(
-        r'(\$(?P<repo>[^\#^\$]+)(#(?P<revision>[^\$]+))?\$)?' +
+        r'(\$(?P<repo>[^\#^\$]+)(\#(?P<revision>[^\$]+))?\$)?' +
         r'(?P<path>[^\#]+)' +
         r'(\#(?P<from_heading>[^:]*)(:(?P<to_heading>.+))?)?'
     )
@@ -35,10 +35,10 @@ class Preprocessor(BasePreprocessor):
         self.logger.debug(f'Preprocessor inited: {self.__dict__}')
 
     def _find_file(
-            self,
-            file_name: str,
-            lookup_dir: Path
-        ) -> Path or None:
+        self,
+        file_name: str,
+        lookup_dir: Path
+    ) -> Path or None:
         '''Find a file in a directory by name. Check subdirectories recursively.
 
         :param file_name: Name of the file
@@ -64,10 +64,10 @@ class Preprocessor(BasePreprocessor):
         return result
 
     def _sync_repo(
-            self,
-            repo_url: str,
-            revision: str or None = None
-        ) -> Path:
+        self,
+        repo_url: str,
+        revision: str or None = None
+    ) -> Path:
         '''Clone a Git repository to the cache dir. If it has been cloned before, update it.
 
         :param repo_url: Repository URL
@@ -125,10 +125,10 @@ class Preprocessor(BasePreprocessor):
         return repo_path
 
     def _shift_headings(
-            self,
-            content: str,
-            shift: int
-        ) -> str:
+        self,
+        content: str,
+        shift: int
+    ) -> str:
         '''Shift Markdown headings in a string by a given value. The shift
         can be positive or negative.
 
@@ -141,22 +141,24 @@ class Preprocessor(BasePreprocessor):
         def _sub(heading):
             new_heading_level = len(heading.group('hashes')) + shift
 
-            self.logger.debug(f'Shift heading level to {new_heading_level}, heading title: {heading.group("title")}')
+            self.logger.debug(
+                f'Shift heading level to {new_heading_level}, heading content: {heading.group("content")}'
+            )
 
             if new_heading_level <= 6:
-                return f'{"#" * new_heading_level} {heading.group("title")}{heading.group("tail")}'
+                return f'{"#" * new_heading_level} {heading.group("content")}{heading.group("tail")}'
 
             else:
                 self.logger.debug('New heading level is out of range, using bold paragraph text instead of heading')
 
-                return f'**{heading.group("title")}**{heading.group("tail")}'
+                return f'**{heading.group("content")}**{heading.group("tail")}'
 
         return self._heading_pattern.sub(_sub, content)
 
     def _find_top_heading_level(
-            self,
-            content: str
-        ) -> int:
+        self,
+        content: str
+    ) -> int:
         '''Find the highest level heading (i.e. having the least '#'s)
         in a Markdown string.
 
@@ -178,24 +180,34 @@ class Preprocessor(BasePreprocessor):
         return result if result < float('inf') else 0
 
     def _cut_from_heading_to_heading(
-            self,
-            content: str,
-            from_heading: str,
-            to_heading: str or None = None,
-            sethead: int or None = None,
-            nohead: bool = False
-        ) -> str:
-        '''Cut part of Markdown string between two headings, set internal heading level,
-        and remove top heading.
+        self,
+        content: str,
+        from_heading: str or None = None,
+        to_heading: str or None = None,
+        from_id: str or None = None,
+        to_id: str or None = None,
+        sethead: int or None = None,
+        nohead: bool = False
+    ) -> str:
+        '''Cut part of Markdown string between two headings
+        defined by their content or their IDs,
+        set internal heading level, and remove top heading.
 
         If only the starting heading is defined, cut to the next heading
         of the same level.
+
+        If neither starting nor ending heading is defined,
+        the whole string is returned.
 
         Heading shift and top heading elimination are optional.
 
         :param content: Markdown content
         :param from_heading: Starting heading
         :param to_heading: Ending heading (will not be incuded in the output)
+        :param from_id: ID of starting heading;
+            this argument has higher priority than ``from_heading``
+        :param to_id: ID of ending heading (the heading itself will not be incuded in the output);
+            this argument has higher priority than ``to_heading``
         :param sethead: Level of the topmost heading in the included content
         :param nohead: Flag that tells to strip the starting heading from the included content
 
@@ -203,95 +215,120 @@ class Preprocessor(BasePreprocessor):
         '''
 
         self.logger.debug(
-            f'Cutting from heading: {from_heading}, to heading: {to_heading}, ' +
+            'Cutting from heading to heading: ' +
+            f'from_heading: {from_heading}, to_heading: {to_heading}, ' +
+            f'from_id: {from_id}, to_id: {to_id}, ' +
             f'sethead: {sethead}, nohead: {nohead}'
         )
 
-        from_heading_pattern = re.compile(r'^\#{1,6}\s+' + rf'{from_heading}\s*$', flags=re.MULTILINE)
+        from_heading_pattern = None
 
-        if not from_heading_pattern.findall(content):
-            return ''
+        if from_id:
+            self.logger.debug('Starting heading is defined by its ID')
 
-        from_heading_line = from_heading_pattern.findall(content)[0]
-        from_heading_level = len(self._heading_pattern.match(from_heading_line).group('hashes'))
-
-        self.logger.debug(f'From heading level: {from_heading_level}')
-
-        result = from_heading_pattern.split(content)[1]
-
-        if to_heading:
-            to_heading_pattern = re.compile(r'^\#{1,6}\s+' + rf'{to_heading}\s*$', flags=re.MULTILINE)
-
-        else:
-            to_heading_pattern = re.compile(
-                rf'^\#{{1,{from_heading_level}}}[^\#]+?$',
+            from_heading_pattern = re.compile(
+                r'^\#{1,6}\s+.+\S+\s+\{\#' + rf'{from_id}' + r'\}\s*$',
                 flags=re.MULTILINE
             )
 
-        result = to_heading_pattern.split(result)[0]
+        elif from_heading:
+            self.logger.debug('Starting heading is defined by its content')
 
-        if not nohead:
-            result = from_heading_line + result
-
-        if sethead:
-            if sethead > 0:
-                result = self._shift_headings(
-                    result,
-                    sethead - from_heading_level
-                )
-
-        return result
-
-    def _cut_to_heading(
-            self,
-            content: str,
-            to_heading: str or None = None,
-            sethead: int or None = None,
-            nohead: bool = False
-        ) -> str:
-        '''Cut part of Markdown string from the start to a certain heading,
-        set internal heading level, and remove top heading.
-
-        If heading is not defined, the whole string is returned.
-
-        Heading shift and top heading elimination are optional.
-
-        :param content: Markdown content
-        :param to_heading: Ending heading (will not be incuded in the output)
-        :param sethead: Level of the topmost heading in the included content
-        :param nohead: Flag that tells to strip the starting heading from the included content
-
-        :returns: Part of the Markdown content from the start to ``to_heading``,
-            with internal headings adjusted
-        '''
-
-        self.logger.debug(f'Cutting to heading: {to_heading}, sethead: {sethead}, nohead: {nohead}')
-
-        content_buffer = StringIO(content)
-
-        first_line = content_buffer.readline()
-
-        if self._heading_pattern.fullmatch(first_line):
-            from_heading_line = first_line
-            from_heading_level = len(self._heading_pattern.match(from_heading_line).group('hashes'))
-            result = content_buffer.read()
+            from_heading_pattern = re.compile(
+                r'^\#{1,6}\s+' + rf'{from_heading}\s*$',
+                flags=re.MULTILINE
+            )
 
         else:
-            from_heading_line = ''
-            from_heading_level = self._find_top_heading_level(content)
-            result = content
+            self.logger.debug('Starting heading is not defined')
 
-        self.logger.debug(f'From heading level: {from_heading_level}')
+        if from_heading_pattern:
+            if not from_heading_pattern.findall(content):
+                self.logger.debug(
+                    'Defined starting heading is not found in the included content, ' +
+                    'so the included content must be skipped'
+                )
 
-        if to_heading:
-            to_heading_pattern = re.compile(r'^\#{1,6}\s+' + rf'{to_heading}\s*$', flags=re.MULTILINE)
+                return ''
+
+            from_heading_line = from_heading_pattern.findall(content)[0]
+            from_heading_level = len(self._heading_pattern.match(from_heading_line).group('hashes'))
+
+            result = from_heading_pattern.split(content)[1]
+
+        else:
+            content_buffer = StringIO(content)
+
+            first_line = content_buffer.readline()
+
+            if self._heading_pattern.fullmatch(first_line):
+                from_heading_line = first_line
+                from_heading_level = len(self._heading_pattern.match(from_heading_line).group('hashes'))
+                result = content_buffer.read()
+
+            else:
+                from_heading_line = ''
+                from_heading_level = self._find_top_heading_level(content)
+                result = content
+
+        self.logger.debug(f'Level of starting heading of the included content: {from_heading_level}')
+
+        to_heading_pattern = None
+
+        if to_id:
+            self.logger.debug('Ending heading is defined by its ID')
+
+            to_heading_pattern = re.compile(
+                r'^\#{1,6}\s+.+\S+\s+\{\#' + rf'{to_id}' + r'\}\s*$',
+                flags=re.MULTILINE
+            )
+
+        elif to_heading:
+            self.logger.debug('Ending heading is defined by its content')
+
+            to_heading_pattern = re.compile(
+                r'^\#{1,6}\s+' + rf'{to_heading}\s*$',
+                flags=re.MULTILINE
+            )
+
+        else:
+            self.logger.debug('Ending heading is not defined')
+
+            if from_heading_pattern:
+                self.logger.debug(
+                    'Since starting heading is defined, cutting to the next heading of the same level'
+                )
+
+                to_heading_pattern = re.compile(
+                    rf'^\#{{1,{from_heading_level}}}\s+\S+.+$',
+                    flags=re.MULTILINE
+                )
+
+            else:
+                self.logger.debug(
+                    'Since starting heading is not defined, using the whole included content'
+                )
+
+        if to_heading_pattern:
             result = to_heading_pattern.split(result)[0]
 
-        if not nohead:
+        if nohead:
+            self.logger.debug(
+                'Since nohead option is specified, do not use starting heading in the output'
+            )
+        else:
+            self.logger.debug(
+                'Since nohead option is not specified, including starting heading into the output'
+            )
+
             result = from_heading_line + result
 
         if sethead:
             if sethead > 0:
+                self.logger.debug(
+                    'Since sethead option is specified, shifting headings levels in the included content'
+                )
+
                 result = self._shift_headings(
                     result,
                     sethead - from_heading_level
@@ -300,10 +337,10 @@ class Preprocessor(BasePreprocessor):
         return result
 
     def _adjust_image_paths(
-            self,
-            content: str,
-            markdown_file_path: Path
-        ) -> str:
+        self,
+        content: str,
+        markdown_file_path: Path
+    ) -> str:
         '''Locate images referenced in a Markdown string and replace their paths
         with the absolute ones.
 
@@ -327,11 +364,11 @@ class Preprocessor(BasePreprocessor):
         return self._image_pattern.sub(_sub, content)
 
     def _adjust_paths_in_tags_attributes(
-            self,
-            content: str,
-            modifier: str,
-            base_path: Path
-        ) -> str:
+        self,
+        content: str,
+        modifier: str,
+        base_path: Path
+    ) -> str:
         '''Locate pseudo-XML tags in Markdown string. Replace the paths
         that are specified as values of pseudo-XML tags attributes
         preceded by modifiers (i.e. YAML tags such as ``!path``)
@@ -375,18 +412,18 @@ class Preprocessor(BasePreprocessor):
             return f'{open_tag}{body}{closing_tag}'
 
         tag_pattern = re.compile(
-            r'(?<!<)(?P<open_tag><(?P<tag>\S+)(?:\s[^<>]*)?>)'
+            r'(?<!\<)(?P<open_tag><(?P<tag>\S+)(?:\s[^\<\>]*)?\>)'
             r'(?P<body>.*?)'
-            r'(?P<closing_tag></(?P=tag)>)',
+            r'(?P<closing_tag>\<\/(?P=tag)\>)',
             re.DOTALL
         )
 
         return tag_pattern.sub(sub_tag, content)
 
     def _get_src_file_path(
-            self,
-            markdown_file_path: Path
-        ) -> Path:
+        self,
+        markdown_file_path: Path
+    ) -> Path:
         '''Translate the path of Markdown file that is located inside the temporary working directory
         into the path of the corresponding Markdown file that is located inside the source directory
         of Foliant project.
@@ -417,10 +454,10 @@ class Preprocessor(BasePreprocessor):
         return path_mapped_to_src_dir
 
     def _get_included_file_path(
-            self,
-            user_specified_path: str or Path,
-            current_processed_file_path: Path
-        ) -> Path:
+        self,
+        user_specified_path: str or Path,
+        current_processed_file_path: Path
+    ) -> Path:
         '''Resolve user specified path to the local included file.
 
         :param user_specified_path: User specified string that represents
@@ -464,14 +501,16 @@ class Preprocessor(BasePreprocessor):
         return included_file_path
 
     def _process_include(
-            self,
-            included_file_path: Path,
-            project_root_path: Path or None = None,
-            from_heading: str or None = None,
-            to_heading: str or None = None,
-            sethead: int or None = None,
-            nohead: bool = False
-        ):
+        self,
+        included_file_path: Path,
+        project_root_path: Path or None = None,
+        from_heading: str or None = None,
+        to_heading: str or None = None,
+        from_id: str or None = None,
+        to_id: str or None = None,
+        sethead: int or None = None,
+        nohead: bool = False
+    ):
         '''Replace a local include statement with the file content. Necessary
         adjustments are applied to the content: cut between certain headings,
         strip the top heading, set heading level.
@@ -481,6 +520,9 @@ class Preprocessor(BasePreprocessor):
             that the currently processed Markdown file belongs to
         :param from_heading: Include starting from this heading
         :param to_heading: Include up to this heading (not including the heading itself)
+        :param from_heading: Include starting from the heading that has this ID
+        :param to_heading: Include up to the heading that has this ID
+            (not including the heading itself)
         :param sethead: Level of the topmost heading in the included content
         :param nohead: Flag that tells to strip the starting heading from the included content
 
@@ -495,22 +537,15 @@ class Preprocessor(BasePreprocessor):
         with open(included_file_path, encoding='utf8') as included_file:
             included_content = included_file.read()
 
-            if from_heading:
-                included_content = self._cut_from_heading_to_heading(
-                    included_content,
-                    from_heading,
-                    to_heading,
-                    sethead,
-                    nohead
-                )
-
-            else:
-                included_content = self._cut_to_heading(
-                    included_content,
-                    to_heading,
-                    sethead,
-                    nohead
-                )
+            included_content = self._cut_from_heading_to_heading(
+                included_content,
+                from_heading,
+                to_heading,
+                from_id,
+                to_id,
+                sethead,
+                nohead
+            )
 
             included_content = self._adjust_image_paths(included_content, included_file_path)
 
@@ -536,11 +571,11 @@ class Preprocessor(BasePreprocessor):
         return included_content
 
     def process_includes(
-            self,
-            markdown_file_path: Path,
-            content: str,
-            project_root_path: Path or None = None
-        ) -> str:
+        self,
+        markdown_file_path: Path,
+        content: str,
+        project_root_path: Path or None = None
+    ) -> str:
         '''Replace all include statements with the respective file contents.
 
         :param markdown_file_path: Path to currently processed Markdown file
@@ -581,28 +616,19 @@ class Preprocessor(BasePreprocessor):
 
                 # If the tag body is not empty, the legacy syntax is expected:
                 #
-                # <include sethead="..." nohead="..." inline="..." project_root="...">
-                # (repo_url#revision$path|src)#from_heading:to_heading
+                # <include project_root="..." sethead="..." nohead="..." inline="...">
+                # ($repo_url#revision$path|src)#from_heading:to_heading
                 # </include>
                 #
                 # If the tag body is empty, the new syntax is expected:
                 #
                 # <include
-                #     repo_url="..."
-                #     revision="..."
-                #     path="..."
+                #     repo_url="..." revision="..." path="..." | src="..."
                 #     project_root="..."
-                #     src="..."
-                #     find="..."
-                #     from_heading="..."
-                #     to_heading="..."
-                #     from_id="..."
-                #     to_id="..."
-                #     sethead="..."
-                #     nohead="..."
-                #     inline="..."
-                # >
-                # </include>
+                #     from_heading="..." to_heading="..."
+                #     from_hid="..." to_hid="..."
+                #     sethead="..." nohead="..." inline="..."
+                # ></include>
 
                 if body:
                     self.logger.debug('Using the legacy syntax rules')
@@ -655,12 +681,12 @@ class Preprocessor(BasePreprocessor):
                         self.logger.debug(f'Set new current project root path: {current_project_root_path}')
 
                         processed_content_part = self._process_include(
-                            included_file_path,
-                            current_project_root_path,
-                            body.group('from_heading'),
-                            body.group('to_heading'),
-                            options.get('sethead'),
-                            options.get('nohead')
+                            included_file_path=included_file_path,
+                            project_root_path=current_project_root_path,
+                            from_heading=body.group('from_heading'),
+                            to_heading=body.group('to_heading'),
+                            sethead=options.get('sethead'),
+                            nohead=options.get('nohead')
                         )
 
                     else:
@@ -683,25 +709,25 @@ class Preprocessor(BasePreprocessor):
                             self.logger.debug(f'Set new current project root path: {current_project_root_path}')
 
                         processed_content_part = self._process_include(
-                            included_file_path,
-                            current_project_root_path,
-                            body.group('from_heading'),
-                            body.group('to_heading'),
-                            options.get('sethead'),
-                            options.get('nohead')
+                            included_file_path=included_file_path,
+                            project_root_path=current_project_root_path,
+                            from_heading=body.group('from_heading'),
+                            to_heading=body.group('to_heading'),
+                            sethead=options.get('sethead'),
+                            nohead=options.get('nohead')
                         )
 
                 else:
                     self.logger.debug('Using the new syntax rules')
 
-                    if options.get('repo_url'):
+                    if options.get('repo_url') and options.get('path'):
                         self.logger.debug('File in Git repository referenced')
 
                         repo_path = self._sync_repo(options.get('repo_url'), options.get('revision'))
 
                         self.logger.debug(f'Local path of the repo: {repo_path}')
 
-                        included_file_path = repo_path / options.get('path')
+                        included_file_path = repo_path / options['path']
 
                         self.logger.debug(f'Resolved path to the included file: {included_file_path}')
 
@@ -712,12 +738,14 @@ class Preprocessor(BasePreprocessor):
                         self.logger.debug(f'Set new current project root path: {current_project_root_path}')
 
                         processed_content_part = self._process_include(
-                            included_file_path,
-                            current_project_root_path,
-                            options.get('from_heading'),
-                            options.get('to_heading'),
-                            options.get('sethead'),
-                            options.get('nohead')
+                            included_file_path=included_file_path,
+                            project_root_path=current_project_root_path,
+                            from_heading=options.get('from_heading'),
+                            to_heading=options.get('to_heading'),
+                            from_id=options.get('from_id'),
+                            to_id=options.get('to_id'),
+                            sethead=options.get('sethead'),
+                            nohead=options.get('nohead')
                         )
 
                     elif options.get('src'):
@@ -735,16 +763,20 @@ class Preprocessor(BasePreprocessor):
                             self.logger.debug(f'Set new current project root path: {current_project_root_path}')
 
                         processed_content_part = self._process_include(
-                            included_file_path,
-                            current_project_root_path,
-                            options.get('from_heading'),
-                            options.get('to_heading'),
-                            options.get('sethead'),
-                            options.get('nohead')
+                            included_file_path=included_file_path,
+                            project_root_path=current_project_root_path,
+                            from_heading=options.get('from_heading'),
+                            to_heading=options.get('to_heading'),
+                            from_id=options.get('from_id'),
+                            to_id=options.get('to_id'),
+                            sethead=options.get('sethead'),
+                            nohead=options.get('nohead')
                         )
 
                     else:
-                        self.logger.warning("Neither repo_url nor src is specified, ignoring the include statement")
+                        self.logger.warning(
+                            'Neither repo_url+path nor src specified, ignoring the include statement'
+                        )
 
                         processed_content_part = ''
 
