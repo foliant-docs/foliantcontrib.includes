@@ -1,10 +1,10 @@
 # 1.1.0 (under development)
 
 -   Support Foliant 1.0.9. Add processing of `!path`, `!project_path`, and `!rel_path` modifiers (i.e. YAML tags) in attribute values of pseudo-XML tags inside the included content. Replace the values that preceded by these modifiers with absolute paths resolved depending on current context.
--   Allow to specify the root directory of Foliant project that the included file belongs to, with optional `project_root` attribute of the `<include>` tag. This can be necessary to resolve the `!path` and the `!project_path` modifiers in the included content correctly.
+-   Allow to specify the top-level (“root”) directory of Foliant project that the included file belongs to, with optional `project_root` attribute of the `<include>` tag. This can be necessary to resolve the `!path` and the `!project_path` modifiers in the included content correctly.
 -   Allow to specify all necessary parameters of each include statement as attribute values of pseudo-XML tags. Keep legacy syntax for backward compatibility.
--   [TODO] Decompose the source code of the preprocessor into several modules.
--   [TODO] Update README.
+-   Update README.
+-   [TODO ???] Decompose the source code of the preprocessor into several modules.
 
 # 1.0.11
 
