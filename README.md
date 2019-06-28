@@ -244,6 +244,4 @@ Include content from “Intro” up to the next heading of the same level:
 <<include>sample.md#Intro</include>
 ```
 
-    >    **Note**
-    >
-    >    In the legacy syntax, problems may occur with the use of `$`, `#`, and `:` characters in filenames and headings, since these characters may be interpreted as delimeters.
+In the legacy syntax, problems may occur with the use of `$`, `#`, and `:` characters in filenames and headings, since these characters may be interpreted as delimeters.
