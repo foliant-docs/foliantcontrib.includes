@@ -52,7 +52,7 @@ preprocessors:
                 foo: https://github.com/boo/bar.git
                 baz: https://github.com/foo/far.git#develop
 
-    you can include the content of the files `doc.md` from these repositories using the following syntax:
+    you can include the content of `doc.md` files from these repositories using the following syntax:
 
         <<include>$foo$path/to/doc.md</include>
 
@@ -62,21 +62,131 @@ preprocessors:
 
 ## Usage
 
-The preprocessors allows to use two variants of syntax of include statements.
+The preprocessor allows two syntax variants for include statements.
 
-The **legacy** syntax is more simply and short, but it is less flexible, and there are no plans to extend it.
+The **legacy** syntax is simpler and shorter but less flexible. There are no plans to extend it.
 
-The **new** syntax is more complicated and strict. This syntax is more suitable for complex cases, and it can be easily extended in the future.
+The **new** syntax introduced in version 1.1.0 is stricter and more flexible. It is more suitable for complex cases, and it can be easily extended in the future. This is the preferred syntax.
 
 Both variants of syntax use the `<<include>...</include>` tags.
 
-If a local file path or a reference to a file in a remote Git repository is enclosed between these tags, the legacy syntax rules are used.
+If the included file is specified between the tags, it’s the legacy syntax. If the file is referenced in the tag attributes (`src`, `repo_url`, `path`), it’s the new one.
 
-If no content is enclosed between these tags, and a local file path or a reference to a file in a remote Git repository is specified in tag attributes, the new syntax rules are used.
+### The New Syntax
+
+To enforce using the new syntax rules, put no content between `<<include>...</include>` tags, and specify a local file or a file in a remote Git repository in tag attributes.
+
+To include a local file, use the `src` attribute:
+
+```markdown
+Text below is taken from another document.
+
+<<include src="path/to/another/document.md"></include>
+```
+
+To include a file from a remote Git repository, use the `repo_url` and `path` attributes:
+
+```markdown
+Text below is taken from a remote repository.
+
+<<include repo_url="https://github.com/foo/bar.git" path="path/to/doc.md"></include>
+```
+
+You have to specify the full remote repository URL in the `repo_url` attribute, aliases are not supported here.
+
+Optional branch or revision can be specified in the `revision` attribute:
+
+```markdown
+Text below is taken from a remote repository on branch develop.
+
+<<include repo_url="https://github.com/foo/bar.git" revision="develop" path="path/to/doc.md"></include>
+```
+
+#### Attributes
+
+`src`
+:   Path to the local file to include.
+
+`repo_url`
+:   Full remote Git repository URL without a revision.
+
+`path`
+:   Path to the file inside the remote Git repository.
+
+    >    **Note**
+    >
+    >    If you are using the new syntax, the `src` attribute is required to include a local file, and the `repo_url` and `path` attributes are required to include a file from a remote Git repository. All other attributes are optional.
+
+    >    **Note**
+    >
+    >    Foliant 1.0.9 supports the processing of attribute values as YAML. You can precede the values of attributes by the `!path`, `!project_path`, and `!rel_path` modifiers (i.e. YAML tags). These modifiers can be useful in the `src`, `path`, and `project_root` attributes.
+
+`revision`
+:   Revision of the Git repository.
+
+`from_heading`
+:   Full content of the starting heading when it’s necessary to include some part of the referenced file content.
+
+`to_heading`
+:   Full content of the ending heading when it’s necessary to include some part of the referenced file content.
+
+`from_id`
+:   ID of the starting heading when it’s necessary to include some part of the referenced file content.
+
+`to_id`
+:   ID of the ending heading when it’s necessary to include some part of the referenced file content.
+
+    Example:
+
+        ## Some Heading {#custom_id}
+
+    Here `Some Heading {#custom_id}` is the full content of the heading, and `custom_id` is its ID.
+
+### Optional Attributes Supported in Both Syntax Variants
+
+`sethead`
+:   The level of the topmost heading in the included content. Use it to guarantee that the included text does not break the parent document’s heading order:
+
+        # Title
+
+        ## Subtitle
+
+        <<include src="other.md" sethead="3"></include>
+
+`nohead`
+:   Flag that tells the preprocessor to strip the starting heading from the included content:
+
+        # My Custom Heading
+
+        <<include src="other.md" from_heading="Original Heading" nohead="true"></include>
+
+    Default is `false`.
+
+`inline`
+:   Flag that tells the preprocessor to replace sequences of whitespace characters of many kinds (including `\r`, `\n`, and `\t`) with single spaces (` `) in the included content, and then to strip leading and trailing spaces. It may be useful in single-line table cells. Default value is `false`.
+
+`project_root`
+:   Path to the top-level (“root”) directory of Foliant project that the included file belongs to. This option may be needed to resolve the `!path` and `!project_path` modifiers in the included content properly.
+
+    >    **Note**
+    >
+    >    By default, if a local file is included, `project_root` points to the top-level directory of the current Foliant project, and if a file in a remote Git repository is referenced, `project_root` points to the top-level directory of this repository. In most cases you don’t need to override the default behavior.
+
+Different options can be combined. For example, use both `sethead` and `nohead` if you want to include a section with a custom heading:
+
+```markdown
+# My Custom Heading
+
+<<include src="other.md" from_heading="Original Heading" sethead="1" nohead="true"></include>
+```
 
 ### The Legacy Syntax
 
-To include a document from your local machine, put the path to the file between `<<include>...</include>` tags:
+This syntax was the only supported in the preprocessor up to version 1.0.11. It’s weird and cryptic, you had to memorize strange rules about `$`, `#` and stuff. The new syntax described above is much cleaner.
+
+The legacy syntax is kept for backward compatibility. To use it, put the reference to the included file between `<<include>...</include>` tags.
+
+Local path example:
 
 ```markdown
 Text below is taken from another document.
@@ -134,118 +244,6 @@ Include content from “Intro” up to the next heading of the same level:
 <<include>sample.md#Intro</include>
 ```
 
-### Common Options for Both Variants of Syntax
-
-`sethead`
-:   The level of the topmost heading in the included content. Use it to guarantee that the included text does not break the parent document’s heading order:
-
-        # Title
-
-        ## Subtitle
-
-        <<include sethead="3">
-            other.md
-        </include>
-
-`nohead`
-:   Flag that tells the preprocessor to strip the starting heading from the included content:
-
-        # My Custom Heading
-
-        <<include nohead="true">
-            other.md#Original Heading
-        </include>
-
-    Default is `false`.
-
-`inline`
-:   Flag that tells the preprocessor to replace sequences of whitespace characters of many kinds (including `\r`, `\n`, and `\t`) with single spaces (` `) in the included content, and then to strip leading and trailing spaces. It may be useful in single-line table cells. Default value is `false`.
-
-`project_root`
-:   Path to the top-level (“root”) directory of Foliant project that the included file belongs to. This option can be necessary to resolve correctly the `!path` and the `!project_path` modifiers in the included content.
-
     >    **Note**
     >
-    >    By default, if a local file is included, `project_root` points to the top-level directory of the current Foliant project, and if a file in a remote Git repository is referenced,.`project_root` points to the top-level directory of this repository. In most cases you do not need to override the default behavior.
-
-Options can be combined. For example, use both `sethead` and `nohead` if you want to include a section with a custom heading:
-
-```markdown
-# My Custom Heading
-
-<<include sethead="1" nohead="true">
-    other.md#Original Heading
-</include>
-```
-
-### The New Syntax
-
-To enforce using the new syntax rules, put no content between `<<include>...</include>` tags, and specify a local file or a file in a remote Git repository in tag attributes.
-
-To include a local file, use the `src` attribute:
-
-```markdown
-Text below is taken from another document.
-
-<<include src="path/to/another/document.md"></include>
-```
-
-To include a file from a remote Git repository, use the `repo_url` and `path` attributes:
-
-```markdown
-Text below is taken from a remote repository.
-
-<<include repo_url="https://github.com/foo/bar.git" path="path/to/doc.md"></include>
-```
-
-You have to specify the full remote repository URL in the `repo_url` attribute, aliases are not supported here.
-
-Optional branch or revision can be specified in the `revision` attribute:
-
-```markdown
-Text below is taken from a remote repository on branch develop.
-
-<<include repo_url="https://github.com/foo/bar.git" revision="develop" path="path/to/doc.md"></include>
-```
-
-#### Attributes
-
-`src`
-:   Path to the local file to include.
-
-`repo_url`
-:   Full remote Git repository URL without a revision.
-
-`path`
-:   Path to the file inside the remote Git repository.
-
-    >    **Note**
-    >
-    >    If you are using the new syntax, the `src` attribute is required to include a local file, and the `repo_url` and `path` attributes are required to include a file from a remote Git repository. All other attributes are optional.
-
-    >    **Note**
-    >
-    >    Foliant 1.0.9 supports the processing of attribute values as YAML. You can precede the values of attributes by the `!path`, `!project_path`, and `!rel_path` modifiers (i.e. YAML tags). These modifiers can be useful in the `src`, `path`, and `project_root` attributes.
-
-`revision`
-:   Revision of the Git repository.
-
-`from_heading`
-:   Full content of the starting heading when it is necessary to include some part of the referenced file content.
-
-`to_heading`
-:   Full content of the ending heading when it is necessary to include some part of the referenced file content.
-
-`from_id`
-:   ID of the starting heading when it is necessary to include some part of the referenced file content.
-
-`to_id`
-:   ID of the ending heading when it is necessary to include some part of the referenced file content.
-
-    Example:
-
-        ## Some Heading {#custom_id}
-
-    Here `Some Heading {#custom_id}` is the full content of the heading, and `custom_id` is its ID.
-
-Also the optional attributes that are described above (`sethead`, `nohead`, `inline`, and `project_root`) are supported in the new syntax.
+    >    In the legacy syntax, problems may occur with the use of `$`, `#`, and `:` characters in filenames and headings, since these characters may be interpreted as delimeters.
