@@ -583,6 +583,8 @@ class Preprocessor(BasePreprocessor):
         :param content: Markdown content
         :param project_root_path: Path to the “root” directory of Foliant project
             that the currently processed Markdown file belongs to
+        :param sethead: Level of the topmost heading in the content,
+            it may be set when the method is called recursively
 
         :returns: Markdown content with resolved includes
         '''
@@ -604,7 +606,6 @@ class Preprocessor(BasePreprocessor):
             include_statement = self.pattern.fullmatch(content_part)
 
             if include_statement:
-                # Reset current project root before each new include statement
                 current_project_root_path = project_root_path
 
                 body = self._tag_body_pattern.match(include_statement.group('body').strip())
