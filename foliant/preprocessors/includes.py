@@ -4,6 +4,7 @@ from pathlib import Path
 from subprocess import run, CalledProcessError, PIPE, STDOUT
 
 from foliant.preprocessors.base import BasePreprocessor
+from foliant.preprocessors import escapecode
 
 
 class Preprocessor(BasePreprocessor):
@@ -510,7 +511,7 @@ class Preprocessor(BasePreprocessor):
         to_id: str or None = None,
         sethead: int or None = None,
         nohead: bool = False
-    ):
+    ) -> str:
         '''Replace a local include statement with the file content. Necessary
         adjustments are applied to the content: cut between certain headings,
         strip the top heading, set heading level.
@@ -536,6 +537,20 @@ class Preprocessor(BasePreprocessor):
 
         with open(included_file_path, encoding='utf8') as included_file:
             included_content = included_file.read()
+
+            if self.config.get('escape_code', False):
+                self.logger.debug(
+                    'Since escape_code mode is on, applying the escapecode preprocessor ' +
+                    'to the included file content'
+                )
+
+                included_content = escapecode.Preprocessor(
+                    self.context,
+                    self.logger,
+                    self.quiet,
+                    self.debug,
+                    {}
+                ).escape(included_content)
 
             included_content = self._cut_from_heading_to_heading(
                 included_content,

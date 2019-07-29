@@ -24,7 +24,8 @@ setup(
     license='MIT',
     platforms='any',
     install_requires=[
-        'foliant>=1.0.9'
+        'foliant>=1.0.10',
+        'foliantcontrib.escapecode>=1.0.0'
     ],
     classifiers=[
         "Development Status :: 5 - Production/Stable",
