@@ -1,6 +1,7 @@
 # 1.1.1 (under development)
 
 -   Support `escape_code` config option. Require Foliant 1.0.10 and escapecode preprocessor 1.0.0.
+-   Process `sethead` recursively.
 
 # 1.1.0
 
