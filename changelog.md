@@ -1,3 +1,7 @@
+# 1.1.2
+
+-   Fix include statement regex pattern. Tags joined with `|` must be in non-capturing parentheses.
+
 # 1.1.1
 
 -   Support `escape_code` config option. Require Foliant 1.0.10 and escapecode preprocessor 1.0.0.
