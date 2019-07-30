@@ -1,3 +1,8 @@
+# 1.1.1
+
+-   Support `escape_code` config option. Require Foliant 1.0.10 and escapecode preprocessor 1.0.0.
+-   Process `sethead` recursively.
+
 # 1.1.0
 
 -   Support Foliant 1.0.9. Add processing of `!path`, `!project_path`, and `!rel_path` modifiers (i.e. YAML tags) in attribute values of pseudo-XML tags inside the included content. Replace the values that preceded by these modifiers with absolute paths resolved depending on current context.

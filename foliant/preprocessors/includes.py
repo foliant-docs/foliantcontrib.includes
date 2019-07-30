@@ -4,6 +4,7 @@ from pathlib import Path
 from subprocess import run, CalledProcessError, PIPE, STDOUT
 
 from foliant.preprocessors.base import BasePreprocessor
+from foliant.preprocessors import escapecode
 
 
 class Preprocessor(BasePreprocessor):
@@ -510,7 +511,7 @@ class Preprocessor(BasePreprocessor):
         to_id: str or None = None,
         sethead: int or None = None,
         nohead: bool = False
-    ):
+    ) -> str:
         '''Replace a local include statement with the file content. Necessary
         adjustments are applied to the content: cut between certain headings,
         strip the top heading, set heading level.
@@ -536,6 +537,20 @@ class Preprocessor(BasePreprocessor):
 
         with open(included_file_path, encoding='utf8') as included_file:
             included_content = included_file.read()
+
+            if self.config.get('escape_code', False):
+                self.logger.debug(
+                    'Since escape_code mode is on, applying the escapecode preprocessor ' +
+                    'to the included file content'
+                )
+
+                included_content = escapecode.Preprocessor(
+                    self.context,
+                    self.logger,
+                    self.quiet,
+                    self.debug,
+                    {}
+                ).escape(included_content)
 
             included_content = self._cut_from_heading_to_heading(
                 included_content,
@@ -574,7 +589,8 @@ class Preprocessor(BasePreprocessor):
         self,
         markdown_file_path: Path,
         content: str,
-        project_root_path: Path or None = None
+        project_root_path: Path or None = None,
+        sethead: int or None = None
     ) -> str:
         '''Replace all include statements with the respective file contents.
 
@@ -582,6 +598,8 @@ class Preprocessor(BasePreprocessor):
         :param content: Markdown content
         :param project_root_path: Path to the “root” directory of Foliant project
             that the currently processed Markdown file belongs to
+        :param sethead: Level of the topmost heading in the content,
+            it may be set when the method is called recursively
 
         :returns: Markdown content with resolved includes
         '''
@@ -593,7 +611,7 @@ class Preprocessor(BasePreprocessor):
         processed_content = ''
 
         include_statement_pattern = re.compile(
-            rf'((?<!\<)\<{"|".join(self.tags)}(?:\s[^\<\>]*)?\>.*?\<\/{"|".join(self.tags)}\>)',
+            rf'((?<!\<)\<(?P<tag>{"|".join(self.tags)})(?:\s[^\<\>]*)?\>.*?\<\/(?P=tag)\>)',
             flags=re.DOTALL
         )
 
@@ -603,7 +621,6 @@ class Preprocessor(BasePreprocessor):
             include_statement = self.pattern.fullmatch(content_part)
 
             if include_statement:
-                # Reset current project root before each new include statement
                 current_project_root_path = project_root_path
 
                 body = self._tag_body_pattern.match(include_statement.group('body').strip())
@@ -613,6 +630,22 @@ class Preprocessor(BasePreprocessor):
                     f'Processing include statement; body: {body}, options: {options}, ' +
                     f'current project root path: {current_project_root_path}'
                 )
+
+                current_sethead = sethead
+
+                self.logger.debug(
+                    f'Current sethead: {current_sethead}, ' +
+                    f'user-specified sethead: {options.get("sethead")}'
+                )
+
+                if options.get('sethead'):
+                    if current_sethead:
+                        current_sethead += options['sethead'] - 1
+
+                    else:
+                        current_sethead = options['sethead']
+
+                    self.logger.debug(f'Set new current sethead: {current_sethead}')
 
                 # If the tag body is not empty, the legacy syntax is expected:
                 #
@@ -685,7 +718,7 @@ class Preprocessor(BasePreprocessor):
                             project_root_path=current_project_root_path,
                             from_heading=body.group('from_heading'),
                             to_heading=body.group('to_heading'),
-                            sethead=options.get('sethead'),
+                            sethead=current_sethead,
                             nohead=options.get('nohead')
                         )
 
@@ -713,7 +746,7 @@ class Preprocessor(BasePreprocessor):
                             project_root_path=current_project_root_path,
                             from_heading=body.group('from_heading'),
                             to_heading=body.group('to_heading'),
-                            sethead=options.get('sethead'),
+                            sethead=current_sethead,
                             nohead=options.get('nohead')
                         )
 
@@ -744,7 +777,7 @@ class Preprocessor(BasePreprocessor):
                             to_heading=options.get('to_heading'),
                             from_id=options.get('from_id'),
                             to_id=options.get('to_id'),
-                            sethead=options.get('sethead'),
+                            sethead=current_sethead,
                             nohead=options.get('nohead')
                         )
 
@@ -769,7 +802,7 @@ class Preprocessor(BasePreprocessor):
                             to_heading=options.get('to_heading'),
                             from_id=options.get('from_id'),
                             to_id=options.get('to_id'),
-                            sethead=options.get('sethead'),
+                            sethead=current_sethead,
                             nohead=options.get('nohead')
                         )
 
@@ -786,7 +819,8 @@ class Preprocessor(BasePreprocessor):
                     processed_content_part = self.process_includes(
                         included_file_path,
                         processed_content_part,
-                        current_project_root_path
+                        current_project_root_path,
+                        current_sethead
                     )
 
                 if options.get('inline'):
