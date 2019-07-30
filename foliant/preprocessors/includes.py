@@ -611,7 +611,7 @@ class Preprocessor(BasePreprocessor):
         processed_content = ''
 
         include_statement_pattern = re.compile(
-            rf'((?<!\<)\<(?P<tag>{"|".join(self.tags)})(?:\s[^\<\>]*)?\>.*?\<\/(?P=tag)\>)',
+            rf'((?<!\<)\<(?:{"|".join(self.tags)})(?:\s[^\<\>]*)?\>.*?\<\/(?:{"|".join(self.tags)})\>)',
             flags=re.DOTALL
         )
 
