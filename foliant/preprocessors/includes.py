@@ -228,6 +228,7 @@ class Preprocessor(BasePreprocessor):
             'Cutting from position to position: ' +
             f'from_heading: {from_heading}, to_heading: {to_heading}, ' +
             f'from_id: {from_id}, to_id: {to_id}, ' +
+            f'to_end: {to_end}, ' +
             f'sethead: {sethead}, nohead: {nohead}'
         )
 
