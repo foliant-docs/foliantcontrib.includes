@@ -180,24 +180,30 @@ class Preprocessor(BasePreprocessor):
 
         return result if result < float('inf') else 0
 
-    def _cut_from_heading_to_heading(
+    def _cut_from_position_to_position(
         self,
         content: str,
         from_heading: str or None = None,
         to_heading: str or None = None,
         from_id: str or None = None,
         to_id: str or None = None,
+        to_end: bool = False,
         sethead: int or None = None,
         nohead: bool = False
     ) -> str:
-        '''Cut part of Markdown string between two headings
-        defined by their content or their IDs,
+        '''Cut part of Markdown string between two positions,
         set internal heading level, and remove top heading.
 
-        If only the starting heading is defined, cut to the next heading
+        Starting position may be defined by the heading content,
+        ID of the heading, ID of the anchor.
+
+        Ending position may be defined like the starting position,
+        and also as the end of the included content.
+
+        If only the starting position is defined, cut to the next heading
         of the same level.
 
-        If neither starting nor ending heading is defined,
+        If neither starting nor ending position is defined,
         the whole string is returned.
 
         Heading shift and top heading elimination are optional.
@@ -205,32 +211,70 @@ class Preprocessor(BasePreprocessor):
         :param content: Markdown content
         :param from_heading: Starting heading
         :param to_heading: Ending heading (will not be incuded in the output)
-        :param from_id: ID of starting heading;
+        :param from_id: ID of starting heading or anchor;
             this argument has higher priority than ``from_heading``
-        :param to_id: ID of ending heading (the heading itself will not be incuded in the output);
-            this argument has higher priority than ``to_heading``
+        :param to_id: ID of ending heading (the heading itself will not be incuded in the output)
+            or anchor; this argument has higher priority than ``to_heading``
+        :param to_end: Flag that tells to cut up to the end of the included content;
+            this argument has higher priority than ``to_id``
         :param sethead: Level of the topmost heading in the included content
         :param nohead: Flag that tells to strip the starting heading from the included content
 
-        :returns: Part of the Markdown content between headings with internal headings adjusted
+        :returns: Part of the Markdown content between defined positions
+            with internal headings adjusted
         '''
 
         self.logger.debug(
-            'Cutting from heading to heading: ' +
+            'Cutting from position to position: ' +
             f'from_heading: {from_heading}, to_heading: {to_heading}, ' +
             f'from_id: {from_id}, to_id: {to_id}, ' +
             f'sethead: {sethead}, nohead: {nohead}'
         )
 
-        from_heading_pattern = None
-
         if from_id:
-            self.logger.debug('Starting heading is defined by its ID')
+            self.logger.debug('Starting point is defined by its ID')
 
-            from_heading_pattern = re.compile(
+            from_identified_heading_pattern = re.compile(
                 r'^\#{1,6}\s+.+\S+\s+\{\#' + rf'{from_id}' + r'\}\s*$',
                 flags=re.MULTILINE
             )
+
+            from_anchor_pattern = re.compile(
+                rf'(?:(?<!\<))\<anchor(?:\s(?:[^\<\>]*))?\>{from_id}<\/anchor\>'
+            )
+
+            if from_identified_heading_pattern.findall(content):
+                self.logger.debug('Starting heading with defined ID is found')
+
+                result = from_identified_heading_pattern.split(content)[1]
+
+                from_heading_line = from_identified_heading_pattern.findall(content)[0]
+                from_heading_level = len(self._heading_pattern.match(from_heading_line).group('hashes'))
+
+                self.logger.debug(f'Level of starting heading: {from_heading_level}')
+
+            elif from_anchor_pattern.findall(content):
+                self.logger.debug('Starting anchor with defined ID is found')
+
+                result = from_anchor_pattern.split(content)[1]
+
+                previous_content = from_anchor_pattern.split(content)[0]
+
+                from_heading_line = None
+                from_heading_level = None
+
+                for previous_heading_match in self._heading_pattern.finditer(previous_content):
+                    from_heading_level = len(previous_heading_match.group('hashes'))
+
+                self.logger.debug(f'Level of starting heading: {from_heading_level}')
+
+            else:
+                self.logger.debug(
+                    'Neither starting heading nor starting anchor is found, '
+                    'the included content must be skipped'
+                )
+
+                return ''
 
         elif from_heading:
             self.logger.debug('Starting heading is defined by its content')
@@ -240,49 +284,71 @@ class Preprocessor(BasePreprocessor):
                 flags=re.MULTILINE
             )
 
-        else:
-            self.logger.debug('Starting heading is not defined')
+            if from_heading_pattern.findall(content):
+                self.logger.debug('Starting heading with defined content is found')
 
-        if from_heading_pattern:
-            if not from_heading_pattern.findall(content):
+                result = from_heading_pattern.split(content)[1]
+
+                from_heading_line = from_heading_pattern.findall(content)[0]
+                from_heading_level = len(self._heading_pattern.match(from_heading_line).group('hashes'))
+
+                self.logger.debug(f'Level of starting heading: {from_heading_level}')
+
+            else:
                 self.logger.debug(
-                    'Defined starting heading is not found in the included content, ' +
-                    'so the included content must be skipped'
+                    'Starting heading is not found, '
+                    'the included content must be skipped'
                 )
 
                 return ''
 
-            from_heading_line = from_heading_pattern.findall(content)[0]
-            from_heading_level = len(self._heading_pattern.match(from_heading_line).group('hashes'))
-
-            result = from_heading_pattern.split(content)[1]
-
         else:
+            self.logger.debug('Starting point is not defined')
+
             content_buffer = StringIO(content)
 
             first_line = content_buffer.readline()
 
             if self._heading_pattern.fullmatch(first_line):
+                self.logger.debug('The content starts with heading')
+
+                result = content_buffer.read()
                 from_heading_line = first_line
                 from_heading_level = len(self._heading_pattern.match(from_heading_line).group('hashes'))
-                result = content_buffer.read()
 
             else:
-                from_heading_line = ''
-                from_heading_level = self._find_top_heading_level(content)
+                self.logger.debug('The content does not start with heading')
+
                 result = content
+                from_heading_line = None
+                from_heading_level = self._find_top_heading_level(content)
 
-        self.logger.debug(f'Level of starting heading of the included content: {from_heading_level}')
+            self.logger.debug(f'Topmost heading level: {from_heading_level}')
 
-        to_heading_pattern = None
+        if to_end:
+            self.logger.debug('Ending point is defined as the end of the document')
 
-        if to_id:
-            self.logger.debug('Ending heading is defined by its ID')
+        elif to_id:
+            self.logger.debug('Ending point is defined by its ID')
 
-            to_heading_pattern = re.compile(
+            to_identified_heading_pattern = re.compile(
                 r'^\#{1,6}\s+.+\S+\s+\{\#' + rf'{to_id}' + r'\}\s*$',
                 flags=re.MULTILINE
             )
+
+            to_anchor_pattern = re.compile(
+                rf'(?:(?<!\<))\<anchor(?:\s(?:[^\<\>]*))?\>{to_id}<\/anchor\>'
+            )
+
+            if to_identified_heading_pattern.findall(result):
+                self.logger.debug('Ending heading with defined ID is found')
+
+                result = to_identified_heading_pattern.split(result)[0]
+
+            elif to_anchor_pattern.findall(result):
+                self.logger.debug('Ending anchor with defined ID is found')
+
+                result = to_anchor_pattern.split(result)[0]
 
         elif to_heading:
             self.logger.debug('Ending heading is defined by its content')
@@ -292,12 +358,17 @@ class Preprocessor(BasePreprocessor):
                 flags=re.MULTILINE
             )
 
-        else:
-            self.logger.debug('Ending heading is not defined')
+            if to_heading_pattern.findall(result):
+                self.logger.debug('Ending heading with defined content is found')
 
-            if from_heading_pattern:
+                result = to_heading_pattern.split(result)[0]
+
+        else:
+            self.logger.debug('Ending point is not defined')
+
+            if from_id or from_heading:
                 self.logger.debug(
-                    'Since starting heading is defined, cutting to the next heading of the same level'
+                    'Since starting point is defined, cutting to the next heading of the same level'
                 )
 
                 to_heading_pattern = re.compile(
@@ -305,21 +376,17 @@ class Preprocessor(BasePreprocessor):
                     flags=re.MULTILINE
                 )
 
+                result = to_heading_pattern.split(result)[0]
+
             else:
                 self.logger.debug(
-                    'Since starting heading is not defined, using the whole included content'
+                    'Since starting point is not defined, using the whole included content'
                 )
 
-        if to_heading_pattern:
-            result = to_heading_pattern.split(result)[0]
-
-        if nohead:
+        if not nohead and from_heading_line:
             self.logger.debug(
-                'Since nohead option is specified, do not use starting heading in the output'
-            )
-        else:
-            self.logger.debug(
-                'Since nohead option is not specified, including starting heading into the output'
+                'Since nohead option is not specified, and the included content starts with heading, ' +
+                'including starting heading into the output'
             )
 
             result = from_heading_line + result
@@ -509,6 +576,7 @@ class Preprocessor(BasePreprocessor):
         to_heading: str or None = None,
         from_id: str or None = None,
         to_id: str or None = None,
+        to_end: bool = False,
         sethead: int or None = None,
         nohead: bool = False
     ) -> str:
@@ -521,9 +589,10 @@ class Preprocessor(BasePreprocessor):
             that the currently processed Markdown file belongs to
         :param from_heading: Include starting from this heading
         :param to_heading: Include up to this heading (not including the heading itself)
-        :param from_heading: Include starting from the heading that has this ID
-        :param to_heading: Include up to the heading that has this ID
+        :param from_id: Include starting from the heading or the anchor that has this ID
+        :param to_id: Include up to the heading or the anchor that has this ID
             (not including the heading itself)
+        :param to_end: Flag that tells to cut to the end of document
         :param sethead: Level of the topmost heading in the included content
         :param nohead: Flag that tells to strip the starting heading from the included content
 
@@ -552,12 +621,13 @@ class Preprocessor(BasePreprocessor):
                     {}
                 ).escape(included_content)
 
-            included_content = self._cut_from_heading_to_heading(
+            included_content = self._cut_from_position_to_position(
                 included_content,
                 from_heading,
                 to_heading,
                 from_id,
                 to_id,
+                to_end,
                 sethead,
                 nohead
             )
@@ -660,7 +730,9 @@ class Preprocessor(BasePreprocessor):
                 #     project_root="..."
                 #     from_heading="..." to_heading="..."
                 #     from_id="..." to_id="..."
-                #     sethead="..." nohead="..." inline="..."
+                #     to_end="..."
+                #     sethead="..." nohead="..."
+                #     inline="..."
                 # ></include>
 
                 if body:
@@ -777,6 +849,7 @@ class Preprocessor(BasePreprocessor):
                             to_heading=options.get('to_heading'),
                             from_id=options.get('from_id'),
                             to_id=options.get('to_id'),
+                            to_end=options.get('to_end'),
                             sethead=current_sethead,
                             nohead=options.get('nohead')
                         )
@@ -802,6 +875,7 @@ class Preprocessor(BasePreprocessor):
                             to_heading=options.get('to_heading'),
                             from_id=options.get('from_id'),
                             to_id=options.get('to_id'),
+                            to_end=options.get('to_end'),
                             sethead=current_sethead,
                             nohead=options.get('nohead')
                         )
