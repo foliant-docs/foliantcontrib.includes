@@ -131,16 +131,21 @@ Text below is taken from a remote repository on branch develop.
 :   Full content of the ending heading when it’s necessary to include some part of the referenced file content.
 
 `from_id`
-:   ID of the starting heading when it’s necessary to include some part of the referenced file content.
+:   ID of the starting heading or starting anchor when it’s necessary to include some part of the referenced file content. The `from_id` attribute has higher priority than `from_heading`.
 
 `to_id`
-:   ID of the ending heading when it’s necessary to include some part of the referenced file content.
+:   ID of the ending heading or ending anchor when it’s necessary to include some part of the referenced file content. The `to_id` attribute has higher priority than `to_heading`.
+
+`to_end`
+:   Flag that tells the preprocessor to cut to the end of the included content. Otherwise, if `from_heading` or `from_id` is specified, the preprocessor cuts the included content to the next heading of the same level as the starting heading, or the heading that precedes the starting anchor.
 
     Example:
 
         ## Some Heading {#custom_id}
 
-    Here `Some Heading {#custom_id}` is the full content of the heading, and `custom_id` is its ID.
+        <<anchor>one_more_custom_id</anchor>
+
+    Here `Some Heading {#custom_id}` is the full content of the heading, `custom_id` is its ID, and `one_more_custom_id` is the ID of the anchor.
 
 ### Optional Attributes Supported in Both Syntax Variants
 
@@ -161,6 +166,8 @@ Text below is taken from a remote repository on branch develop.
         <<include src="other.md" from_heading="Original Heading" nohead="true"></include>
 
     Default is `false`.
+
+    By default, the starting heading is included to the output, and the ending heading is not. Starting and ending anchors are never included into the output.
 
 `inline`
 :   Flag that tells the preprocessor to replace sequences of whitespace characters of many kinds (including `\r`, `\n`, and `\t`) with single spaces (` `) in the included content, and then to strip leading and trailing spaces. It may be useful in single-line table cells. Default value is `false`.
