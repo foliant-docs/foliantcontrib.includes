@@ -232,6 +232,8 @@ class Preprocessor(BasePreprocessor):
             f'sethead: {sethead}, nohead: {nohead}'
         )
 
+        # First, cut the content from the starting position to the end
+
         if from_id:
             self.logger.debug('Starting point is defined by its ID')
 
@@ -272,7 +274,7 @@ class Preprocessor(BasePreprocessor):
             else:
                 self.logger.debug(
                     'Neither starting heading nor starting anchor is found, '
-                    'the included content must be skipped'
+                    'skipping the included content'
                 )
 
                 return ''
@@ -296,10 +298,7 @@ class Preprocessor(BasePreprocessor):
                 self.logger.debug(f'Level of starting heading: {from_heading_level}')
 
             else:
-                self.logger.debug(
-                    'Starting heading is not found, '
-                    'the included content must be skipped'
-                )
+                self.logger.debug('Starting heading is not found, skipping the included content')
 
                 return ''
 
@@ -326,6 +325,8 @@ class Preprocessor(BasePreprocessor):
 
             self.logger.debug(f'Topmost heading level: {from_heading_level}')
 
+        # After that, cut the result to the ending position
+
         if to_end:
             self.logger.debug('Ending point is defined as the end of the document')
 
@@ -351,6 +352,9 @@ class Preprocessor(BasePreprocessor):
 
                 result = to_anchor_pattern.split(result)[0]
 
+            else:
+                self.logger.debug('Neither ending heading nor ending anchor is found, cutting to the end')
+
         elif to_heading:
             self.logger.debug('Ending heading is defined by its content')
 
@@ -363,6 +367,9 @@ class Preprocessor(BasePreprocessor):
                 self.logger.debug('Ending heading with defined content is found')
 
                 result = to_heading_pattern.split(result)[0]
+
+            else:
+                self.logger.debug('Ending heading is not found, cutting to the end')
 
         else:
             self.logger.debug('Ending point is not defined')
@@ -383,6 +390,8 @@ class Preprocessor(BasePreprocessor):
                 self.logger.debug(
                     'Since starting point is not defined, using the whole included content'
                 )
+
+        # Finally, take into account the options nohead and sethead
 
         if not nohead and from_heading_line:
             self.logger.debug(
