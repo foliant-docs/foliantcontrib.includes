@@ -1,3 +1,7 @@
+# 1.1.4
+
+-   Allow for the starting and ending headings to be 1-character long.
+
 # 1.1.3
 
 -   Allow to specify IDs of anchors in the `from_id` and `to_id` attributes. Support the `to_end` attribute.
