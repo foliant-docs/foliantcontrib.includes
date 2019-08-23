@@ -238,7 +238,7 @@ class Preprocessor(BasePreprocessor):
             self.logger.debug('Starting point is defined by its ID')
 
             from_identified_heading_pattern = re.compile(
-                r'^\#{1,6}\s+.+\S+\s+\{\#' + rf'{from_id}' + r'\}\s*$',
+                r'^\#{1,6}\s+.*\S+\s+\{\#' + rf'{from_id}' + r'\}\s*$',
                 flags=re.MULTILINE
             )
 
@@ -334,7 +334,7 @@ class Preprocessor(BasePreprocessor):
             self.logger.debug('Ending point is defined by its ID')
 
             to_identified_heading_pattern = re.compile(
-                r'^\#{1,6}\s+.+\S+\s+\{\#' + rf'{to_id}' + r'\}\s*$',
+                r'^\#{1,6}\s+.*\S+\s+\{\#' + rf'{to_id}' + r'\}\s*$',
                 flags=re.MULTILINE
             )
 
@@ -380,7 +380,7 @@ class Preprocessor(BasePreprocessor):
                 )
 
                 to_heading_pattern = re.compile(
-                    rf'^\#{{1,{from_heading_level}}}\s+\S+.+$',
+                    rf'^\#{{1,{from_heading_level}}}\s+\S+.*$',
                     flags=re.MULTILINE
                 )
 
