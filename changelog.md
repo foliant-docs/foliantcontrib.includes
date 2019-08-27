@@ -1,3 +1,7 @@
+# 1.1.5
+
+-   Remove meta blocks from the included content.
+
 # 1.1.4
 
 -   Allow for the starting and ending headings to be 1-character long.

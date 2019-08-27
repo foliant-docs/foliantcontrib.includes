@@ -16,7 +16,7 @@ setup(
     description=SHORT_DESCRIPTION,
     long_description=LONG_DESCRIPTION,
     long_description_content_type='text/markdown',
-    version='1.1.4',
+    version='1.1.5',
     author='Konstantin Molchanov',
     author_email='moigagoo@live.com',
     url='https://github.com/foliant-docs/foliantcontrib.includes',
@@ -25,7 +25,8 @@ setup(
     platforms='any',
     install_requires=[
         'foliant>=1.0.10',
-        'foliantcontrib.escapecode>=1.0.0'
+        'foliantcontrib.escapecode>=1.0.0',
+        'foliantcontrib.meta>=1.1.0'
     ],
     classifiers=[
         "Development Status :: 5 - Production/Stable",

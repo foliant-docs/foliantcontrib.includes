@@ -5,6 +5,7 @@ from subprocess import run, CalledProcessError, PIPE, STDOUT
 
 from foliant.preprocessors.base import BasePreprocessor
 from foliant.preprocessors import escapecode
+from foliant.preprocessors import meta
 
 
 class Preprocessor(BasePreprocessor):
@@ -630,6 +631,17 @@ class Preprocessor(BasePreprocessor):
                     self.debug,
                     {}
                 ).escape(included_content)
+
+            # Applying preprocessor meta to delete meta-blocks from the
+            # content before including
+
+            included_content = meta.Preprocessor(
+                self.context,
+                self.logger,
+                self.quiet,
+                self.debug,
+                {'delete_meta': True}
+            ).process_meta_blocks(included_content)
 
             included_content = self._cut_from_position_to_position(
                 included_content,
