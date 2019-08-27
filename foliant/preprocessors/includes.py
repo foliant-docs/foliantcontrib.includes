@@ -632,7 +632,7 @@ class Preprocessor(BasePreprocessor):
                     {}
                 ).escape(included_content)
 
-            # Applying preprocessor meta to delete meta-blocks from the
+            # Applying preprocessor meta to remove meta-blocks from the
             # content before including
 
             included_content = meta.Preprocessor(
