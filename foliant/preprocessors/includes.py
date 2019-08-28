@@ -239,12 +239,12 @@ class Preprocessor(BasePreprocessor):
             self.logger.debug('Starting point is defined by its ID')
 
             from_identified_heading_pattern = re.compile(
-                r'^\#{1,6}\s+.*\S+\s+\{\#' + rf'{from_id}' + r'\}\s*$',
+                r'^\#{1,6}\s+.*\S+\s+\{\#' + rf'{re.escape(from_id)}' + r'\}\s*$',
                 flags=re.MULTILINE
             )
 
             from_anchor_pattern = re.compile(
-                rf'(?:(?<!\<))\<anchor(?:\s(?:[^\<\>]*))?\>{from_id}<\/anchor\>'
+                rf'(?:(?<!\<))\<anchor(?:\s(?:[^\<\>]*))?\>{re.escape(from_id)}<\/anchor\>'
             )
 
             if from_identified_heading_pattern.findall(content):
@@ -284,7 +284,7 @@ class Preprocessor(BasePreprocessor):
             self.logger.debug('Starting heading is defined by its content')
 
             from_heading_pattern = re.compile(
-                r'^\#{1,6}\s+' + rf'{from_heading}\s*$',
+                r'^\#{1,6}\s+' + rf'{re.escape(from_heading)}\s*$',
                 flags=re.MULTILINE
             )
 
@@ -335,12 +335,12 @@ class Preprocessor(BasePreprocessor):
             self.logger.debug('Ending point is defined by its ID')
 
             to_identified_heading_pattern = re.compile(
-                r'^\#{1,6}\s+.*\S+\s+\{\#' + rf'{to_id}' + r'\}\s*$',
+                r'^\#{1,6}\s+.*\S+\s+\{\#' + rf'{re.escape(to_id)}' + r'\}\s*$',
                 flags=re.MULTILINE
             )
 
             to_anchor_pattern = re.compile(
-                rf'(?:(?<!\<))\<anchor(?:\s(?:[^\<\>]*))?\>{to_id}<\/anchor\>'
+                rf'(?:(?<!\<))\<anchor(?:\s(?:[^\<\>]*))?\>{re.escape(to_id)}<\/anchor\>'
             )
 
             if to_identified_heading_pattern.findall(result):
@@ -360,7 +360,7 @@ class Preprocessor(BasePreprocessor):
             self.logger.debug('Ending heading is defined by its content')
 
             to_heading_pattern = re.compile(
-                r'^\#{1,6}\s+' + rf'{to_heading}\s*$',
+                r'^\#{1,6}\s+' + rf'{re.escape(to_heading)}\s*$',
                 flags=re.MULTILINE
             )
 
@@ -478,7 +478,7 @@ class Preprocessor(BasePreprocessor):
 
             path_attribute_pattern = re.compile(
                 r'''(?P<quote>'|")''' +
-                rf'(?P<modifier>\s*{modifier}\s+)' +
+                rf'(?P<modifier>\s*{re.escape(modifier)}\s+)' +
                 r'(?P<path>.+?)' +
                 r'(?P=quote)',
                 re.DOTALL

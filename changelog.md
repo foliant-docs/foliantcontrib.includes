@@ -1,3 +1,7 @@
+# 1.1.6
+
+-   Escape regular expression metacharacters in starting and ending headings, IDs, modifiers.
+
 # 1.1.5
 
 -   Remove meta blocks from the included content.
