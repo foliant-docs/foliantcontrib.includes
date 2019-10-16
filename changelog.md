@@ -1,3 +1,7 @@
+# 1.1.7
+
+-   Allow to specify custom options for EscapeCode preprocessor as the `escape_code.options` config parameter value.
+
 # 1.1.6
 
 -   Escape regular expression metacharacters in starting and ending headings, IDs, modifiers.
