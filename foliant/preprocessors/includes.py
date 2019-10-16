@@ -619,6 +619,12 @@ class Preprocessor(BasePreprocessor):
             included_content = included_file.read()
 
             if self.config.get('escape_code', False):
+                if isinstance(self.config['escape_code'], dict):
+                    escapecode_options = self.config['escape_code'].get('options', {})
+
+                else:
+                    escapecode_options = {}
+
                 self.logger.debug(
                     'Since escape_code mode is on, applying the escapecode preprocessor ' +
                     'to the included file content'
@@ -629,7 +635,7 @@ class Preprocessor(BasePreprocessor):
                     self.logger,
                     self.quiet,
                     self.debug,
-                    {}
+                    escapecode_options
                 ).escape(included_content)
 
             # Applying preprocessor meta to remove meta-blocks from the
