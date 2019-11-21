@@ -1,3 +1,7 @@
+# 1.1.8
+
+-   Support meta 1.2
+
 # 1.1.7
 
 -   Allow to specify custom options for EscapeCode preprocessor as the `escape_code.options` config parameter value.
