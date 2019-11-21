@@ -26,7 +26,7 @@ setup(
     install_requires=[
         'foliant>=1.0.10',
         'foliantcontrib.escapecode>=1.0.0',
-        'foliantcontrib.meta>=1.1.0'
+        'foliantcontrib.meta>=1.2.0'
     ],
     classifiers=[
         "Development Status :: 5 - Production/Stable",
