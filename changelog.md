@@ -1,3 +1,7 @@
+# 1.1.9
+
+-   Support meta 1.3
+
 # 1.1.8
 
 -   Support meta 1.2
