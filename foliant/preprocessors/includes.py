@@ -5,7 +5,7 @@ from subprocess import run, CalledProcessError, PIPE, STDOUT
 
 from foliant.preprocessors.base import BasePreprocessor
 from foliant.preprocessors import escapecode
-from foliant.cli.meta.utils import remove_meta
+from foliant.meta.tools import remove_meta
 
 
 class Preprocessor(BasePreprocessor):
