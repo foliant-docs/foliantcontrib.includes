@@ -36,7 +36,7 @@ class Preprocessor(BasePreprocessor):
         super().__init__(*args, **kwargs)
 
         self._cache_path = self.project_path / self.options['cache_dir']
-        self._downloaded = self._cache_path / '_downloaded'
+        self._downloaded_path = self._cache_path / '_downloaded'
 
         self.logger = self.logger.getChild('includes')
 
@@ -72,14 +72,29 @@ class Preprocessor(BasePreprocessor):
         return result
 
     def _download_file(self, url: str) -> Path:
+        '''
+        Download file over the direct link and save it under a unique name in
+        the cache dir.
+
+        :param url: direct url to the included file
+
+        :returns: path to the stored copy of the remote file
+        '''
+        self.logger.debug(f'Downloading file from url {url}')
+
         base_filename = os.path.basename(urllib.parse.urlparse(url).path)
         uid = md5(base_filename.encode()).hexdigest()[:7]
-        filename = self._downloaded / uid.join(os.path.splitext(base_filename))
+        filepath = self._downloaded_path / uid.join(os.path.splitext(base_filename))
+        self.logger.debug(f'File will be saved to {filepath}')
+
+        if filepath.exists():
+            self.logger.debug(f'This file was already downloaded on this run')
+            return filepath
 
         data = urllib.request.urlopen(url).read().decode('utf-8')
-        with open(filename, 'w', encoding='utf8') as f:
+        with open(filepath, 'w', encoding='utf8') as f:
             f.write(data)
-        return filename
+        return filepath
 
     def _sync_repo(
         self,
@@ -891,10 +906,10 @@ class Preprocessor(BasePreprocessor):
                             nohead=options.get('nohead')
                         )
 
-                    elif options.get('src'):
-                        self.logger.debug('Local file referenced')
+                    elif options.get('url'):
+                        self.logger.debug('File referenced via direct link')
 
-                        included_file_path = self._get_included_file_path(options.get('src'), markdown_file_path)
+                        included_file_path = self._download_file(options['url'])
 
                         self.logger.debug(f'Resolved path to the included file: {included_file_path}')
 
@@ -916,10 +931,11 @@ class Preprocessor(BasePreprocessor):
                             sethead=current_sethead,
                             nohead=options.get('nohead')
                         )
-                    elif options.get('url'):
-                        self.logger.debug('File referenced via direct link')
 
-                        included_file_path = self._download_file(options['url'])
+                    elif options.get('src'):
+                        self.logger.debug('Local file referenced')
+
+                        included_file_path = self._get_included_file_path(options.get('src'), markdown_file_path)
 
                         self.logger.debug(f'Resolved path to the included file: {included_file_path}')
 
@@ -987,8 +1003,8 @@ class Preprocessor(BasePreprocessor):
         self.logger.info('Applying preprocessor')
 
         # cleaning up downloads because files may have changed
-        shutil.rmtree(self._downloaded, ignore_errors=True)
-        self._downloaded.mkdir(parents=True)
+        shutil.rmtree(self._downloaded_path, ignore_errors=True)
+        self._downloaded_path.mkdir(parents=True)
 
         extensions = self.get_extension_list()
         for ext in extensions:
