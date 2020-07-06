@@ -12,7 +12,8 @@ class Preprocessor(BasePreprocessor):
     defaults = {
         'recursive': True,
         'cache_dir': Path('.includescache'),
-        'aliases': {}
+        'aliases': {},
+        'extensions': ['md']
     }
     tags = 'include',
 
@@ -930,21 +931,35 @@ class Preprocessor(BasePreprocessor):
 
         return processed_content
 
+    def get_extension_list(self):
+        raw_list = self.options['extensions']
+        result = []
+        md_in_list = False
+        for ext in raw_list:
+            val = ext.lstrip('.')
+            result.append(f'*.{val}')
+            if val == 'md':
+                md_in_list = True
+        if not md_in_list:
+            self.logger.warning('Markdown extensions "md" not in extensions list! Have you forgot to put it there?')
+        return result
+
     def apply(self):
         self.logger.info('Applying preprocessor')
+        extensions = self.get_extension_list()
+        for ext in extensions:
+            for source_file_path in self.working_dir.rglob(ext):
+                with open(source_file_path, encoding='utf8') as markdown_file:
+                    content = markdown_file.read()
 
-        for markdown_file_path in self.working_dir.rglob('*.md'):
-            with open(markdown_file_path, encoding='utf8') as markdown_file:
-                content = markdown_file.read()
+                processed_content = self.process_includes(
+                    source_file_path,
+                    content,
+                    self.project_path.resolve()
+                )
 
-            processed_content = self.process_includes(
-                markdown_file_path,
-                content,
-                self.project_path.resolve()
-            )
-
-            if processed_content:
-                with open(markdown_file_path, 'w', encoding='utf8') as markdown_file:
-                    markdown_file.write(processed_content)
+                if processed_content:
+                    with open(source_file_path, 'w', encoding='utf8') as markdown_file:
+                        markdown_file.write(processed_content)
 
         self.logger.info('Preprocessor applied')

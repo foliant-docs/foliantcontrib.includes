@@ -24,6 +24,9 @@ preprocessors:
     - includes:
         cache_dir: !path .includescache
         recursive: true
+        extensions:
+            - md
+            - j2
         aliases:
             ...
 ```
@@ -37,6 +40,9 @@ preprocessors:
 
 `recursive`
 :   Flag that defines whether includes in included documents should be processed.
+
+`extensions`
+:   List of file extensions where includes will be processed. Might be useful if you want to include content into config-file or a template-file. Default: `[md]`.
 
 `aliases`
 :   Mapping from aliases to Git repository URLs. Once defined here, an alias can be used to refer to the repository instead of its full URL.
