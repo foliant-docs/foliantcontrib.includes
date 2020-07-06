@@ -1,5 +1,9 @@
+import os
 import re
+import shutil
+import urllib
 from io import StringIO
+from hashlib import md5
 from pathlib import Path
 from subprocess import run, CalledProcessError, PIPE, STDOUT
 
@@ -32,6 +36,7 @@ class Preprocessor(BasePreprocessor):
         super().__init__(*args, **kwargs)
 
         self._cache_path = self.project_path / self.options['cache_dir']
+        self._downloaded = self._cache_path / '_downloaded'
 
         self.logger = self.logger.getChild('includes')
 
@@ -65,6 +70,16 @@ class Preprocessor(BasePreprocessor):
         self.logger.debug(f'File found: {result}')
 
         return result
+
+    def _download_file(self, url: str) -> Path:
+        base_filename = os.path.basename(urllib.parse.urlparse(url).path)
+        uid = md5(base_filename.encode()).hexdigest()[:7]
+        filename = self._downloaded / uid.join(os.path.splitext(base_filename))
+
+        data = urllib.request.urlopen(url).read().decode('utf-8')
+        with open(filename, 'w', encoding='utf8') as f:
+            f.write(data)
+        return filename
 
     def _sync_repo(
         self,
@@ -844,7 +859,7 @@ class Preprocessor(BasePreprocessor):
                             nohead=options.get('nohead')
                         )
 
-                else:
+                else:  # if body
                     self.logger.debug('Using the new syntax rules')
 
                     if options.get('repo_url') and options.get('path'):
@@ -901,7 +916,31 @@ class Preprocessor(BasePreprocessor):
                             sethead=current_sethead,
                             nohead=options.get('nohead')
                         )
+                    elif options.get('url'):
+                        self.logger.debug('File referenced via direct link')
 
+                        included_file_path = self._download_file(options['url'])
+
+                        self.logger.debug(f'Resolved path to the included file: {included_file_path}')
+
+                        if options.get('project_root'):
+                            current_project_root_path = (
+                                markdown_file_path.parent / options.get('project_root')
+                            ).resolve()
+
+                            self.logger.debug(f'Set new current project root path: {current_project_root_path}')
+
+                        processed_content_part = self._process_include(
+                            included_file_path=included_file_path,
+                            project_root_path=current_project_root_path,
+                            from_heading=options.get('from_heading'),
+                            to_heading=options.get('to_heading'),
+                            from_id=options.get('from_id'),
+                            to_id=options.get('to_id'),
+                            to_end=options.get('to_end'),
+                            sethead=current_sethead,
+                            nohead=options.get('nohead')
+                        )
                     else:
                         self.logger.warning(
                             'Neither repo_url+path nor src specified, ignoring the include statement'
@@ -946,6 +985,11 @@ class Preprocessor(BasePreprocessor):
 
     def apply(self):
         self.logger.info('Applying preprocessor')
+
+        # cleaning up downloads because files may have changed
+        shutil.rmtree(self._downloaded, ignore_errors=True)
+        self._downloaded.mkdir(parents=True)
+
         extensions = self.get_extension_list()
         for ext in extensions:
             for source_file_path in self.working_dir.rglob(ext):
