@@ -931,7 +931,13 @@ class Preprocessor(BasePreprocessor):
 
         return processed_content
 
-    def get_extension_list(self):
+    def get_extension_list(self) -> list:
+        '''
+        Get list of specified extensions from `extensions` config param and convert
+        it into list of glob patterns for each of these exensions.
+
+        :returns: list of glob patters for each file extension from config
+        '''
         raw_list = self.options['extensions']
         result = []
         md_in_list = False
@@ -941,7 +947,7 @@ class Preprocessor(BasePreprocessor):
             if val == 'md':
                 md_in_list = True
         if not md_in_list:
-            self.logger.warning('Markdown extensions "md" not in extensions list! Have you forgot to put it there?')
+            self.logger.warning('Markdown extension "md" not in extensions list! Did you forget to put it there?')
         return result
 
     def apply(self):
