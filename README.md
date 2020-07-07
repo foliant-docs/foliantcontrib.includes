@@ -62,7 +62,7 @@ preprocessors:
 
         <<include>$foo$path/to/doc.md</include>
 
-        <<include>$baz#master$path/to/doc.md</include> 
+        <<include>$baz#master$path/to/doc.md</include>
 
     Note that in the second example the default revision (`develop`) will be overridden with the custom one (`master`).
 
@@ -113,6 +113,9 @@ Text below is taken from a remote repository on branch develop.
 `src`
 :   Path to the local file to include.
 
+`url`
+:   Direct link to remote file, which needs to be included.
+
 `repo_url`
 :   Full remote Git repository URL without a revision.
 
@@ -121,7 +124,7 @@ Text below is taken from a remote repository on branch develop.
 
     >    **Note**
     >
-    >    If you are using the new syntax, the `src` attribute is required to include a local file, and the `repo_url` and `path` attributes are required to include a file from a remote Git repository. All other attributes are optional.
+    >    If you are using the new syntax, the `src` attribute is required to include a local file, `url` is required to include a remote file, and the `repo_url` and `path` attributes are required to include a file from a remote Git repository. All other attributes are optional.
 
     >    **Note**
     >
