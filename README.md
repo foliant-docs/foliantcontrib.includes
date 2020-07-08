@@ -24,6 +24,9 @@ preprocessors:
     - includes:
         cache_dir: !path .includescache
         recursive: true
+        extensions:
+            - md
+            - j2
         aliases:
             ...
 ```
@@ -37,6 +40,9 @@ preprocessors:
 
 `recursive`
 :   Flag that defines whether includes in included documents should be processed.
+
+`extensions`
+:   List of file extensions where includes will be processed. Might be useful if you want to include content into config-file or a template-file. Default: `[md]`.
 
 `aliases`
 :   Mapping from aliases to Git repository URLs. Once defined here, an alias can be used to refer to the repository instead of its full URL.
@@ -56,7 +62,7 @@ preprocessors:
 
         <<include>$foo$path/to/doc.md</include>
 
-        <<include>$baz#master$path/to/doc.md</include> 
+        <<include>$baz#master$path/to/doc.md</include>
 
     Note that in the second example the default revision (`develop`) will be overridden with the custom one (`master`).
 
@@ -107,6 +113,9 @@ Text below is taken from a remote repository on branch develop.
 `src`
 :   Path to the local file to include.
 
+`url`
+:   Direct link to remote file, which needs to be included.
+
 `repo_url`
 :   Full remote Git repository URL without a revision.
 
@@ -115,7 +124,7 @@ Text below is taken from a remote repository on branch develop.
 
     >    **Note**
     >
-    >    If you are using the new syntax, the `src` attribute is required to include a local file, and the `repo_url` and `path` attributes are required to include a file from a remote Git repository. All other attributes are optional.
+    >    If you are using the new syntax, the `src` attribute is required to include a local file, `url` is required to include a remote file, and the `repo_url` and `path` attributes are required to include a file from a remote Git repository. All other attributes are optional.
 
     >    **Note**
     >
