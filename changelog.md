@@ -1,4 +1,4 @@
-# 1.1.10
+# 1.1.11
 
 -   New: `extensions` parameter to process file types different from .md
 -   New: `url` attribute to include content from direct link to file

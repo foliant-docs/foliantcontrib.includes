@@ -83,7 +83,7 @@ class Preprocessor(BasePreprocessor):
         self.logger.debug(f'Downloading file from url {url}')
 
         base_filename = os.path.basename(urllib.parse.urlparse(url).path)
-        uid = md5(base_filename.encode()).hexdigest()[:7]
+        uid = md5(url.encode()).hexdigest()[:7]
         filepath = self._downloaded_path / uid.join(os.path.splitext(base_filename))
         self.logger.debug(f'File will be saved to {filepath}')
 
