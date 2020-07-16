@@ -1,3 +1,5 @@
+[![](https://img.shields.io/pypi/v/foliantcontrib.includes.svg)](https://pypi.org/project/foliantcontrib.includes/) [![](https://img.shields.io/github/v/tag/foliant-docs/foliantcontrib.includes.svg?label=GitHub)](https://github.com/foliant-docs/foliantcontrib.includes)
+
 # Includes for Foliant
 
 Includes preprocessor lets you reuse parts of other documents in your Foliant project sources. It can include from files on your local machine and remote Git repositories. You can include entire documents as well as parts between particular headings, removing or normalizing included headings on the way.
@@ -60,9 +62,9 @@ preprocessors:
 
     you can include the content of `doc.md` files from these repositories using the following syntax:
 
-        <<include>$foo$path/to/doc.md</include>
+        <include>$foo$path/to/doc.md</include>
 
-        <<include>$baz#master$path/to/doc.md</include>
+        <include>$baz#master$path/to/doc.md</include>
 
     Note that in the second example the default revision (`develop`) will be overridden with the custom one (`master`).
 
@@ -74,20 +76,20 @@ The **legacy** syntax is simpler and shorter but less flexible. There are no pla
 
 The **new** syntax introduced in version 1.1.0 is stricter and more flexible. It is more suitable for complex cases, and it can be easily extended in the future. This is the preferred syntax.
 
-Both variants of syntax use the `<<include>...</include>` tags.
+Both variants of syntax use the `<include>...</include>` tags.
 
 If the included file is specified between the tags, it’s the legacy syntax. If the file is referenced in the tag attributes (`src`, `repo_url`, `path`), it’s the new one.
 
 ### The New Syntax
 
-To enforce using the new syntax rules, put no content between `<<include>...</include>` tags, and specify a local file or a file in a remote Git repository in tag attributes.
+To enforce using the new syntax rules, put no content between `<include>...</include>` tags, and specify a local file or a file in a remote Git repository in tag attributes.
 
 To include a local file, use the `src` attribute:
 
 ```markdown
 Text below is taken from another document.
 
-<<include src="path/to/another/document.md"></include>
+<include src="path/to/another/document.md"></include>
 ```
 
 To include a file from a remote Git repository, use the `repo_url` and `path` attributes:
@@ -95,7 +97,7 @@ To include a file from a remote Git repository, use the `repo_url` and `path` at
 ```markdown
 Text below is taken from a remote repository.
 
-<<include repo_url="https://github.com/foo/bar.git" path="path/to/doc.md"></include>
+<include repo_url="https://github.com/foo/bar.git" path="path/to/doc.md"></include>
 ```
 
 You have to specify the full remote repository URL in the `repo_url` attribute, aliases are not supported here.
@@ -105,7 +107,7 @@ Optional branch or revision can be specified in the `revision` attribute:
 ```markdown
 Text below is taken from a remote repository on branch develop.
 
-<<include repo_url="https://github.com/foo/bar.git" revision="develop" path="path/to/doc.md"></include>
+<include repo_url="https://github.com/foo/bar.git" revision="develop" path="path/to/doc.md"></include>
 ```
 
 #### Attributes
@@ -152,7 +154,7 @@ Text below is taken from a remote repository on branch develop.
 
         ## Some Heading {#custom_id}
 
-        <<anchor>one_more_custom_id</anchor>
+        <anchor>one_more_custom_id</anchor>
 
     Here `Some Heading {#custom_id}` is the full content of the heading, `custom_id` is its ID, and `one_more_custom_id` is the ID of the anchor.
 
@@ -165,14 +167,14 @@ Text below is taken from a remote repository on branch develop.
 
         ## Subtitle
 
-        <<include src="other.md" sethead="3"></include>
+        <include src="other.md" sethead="3"></include>
 
 `nohead`
 :   Flag that tells the preprocessor to strip the starting heading from the included content:
 
         # My Custom Heading
 
-        <<include src="other.md" from_heading="Original Heading" nohead="true"></include>
+        <include src="other.md" from_heading="Original Heading" nohead="true"></include>
 
     Default is `false`.
 
@@ -193,21 +195,21 @@ Different options can be combined. For example, use both `sethead` and `nohead` 
 ```markdown
 # My Custom Heading
 
-<<include src="other.md" from_heading="Original Heading" sethead="1" nohead="true"></include>
+<include src="other.md" from_heading="Original Heading" sethead="1" nohead="true"></include>
 ```
 
 ### The Legacy Syntax
 
 This syntax was the only supported in the preprocessor up to version 1.0.11. It’s weird and cryptic, you had to memorize strange rules about `$`, `#` and stuff. The new syntax described above is much cleaner.
 
-The legacy syntax is kept for backward compatibility. To use it, put the reference to the included file between `<<include>...</include>` tags.
+The legacy syntax is kept for backward compatibility. To use it, put the reference to the included file between `<include>...</include>` tags.
 
 Local path example:
 
 ```markdown
 Text below is taken from another document.
 
-<<include>path/to/another/document.md</include>
+<include>path/to/another/document.md</include>
 ```
 
 The path may be either relative to currently processed Markdown file or absolute.
@@ -217,7 +219,7 @@ To include a document from a remote Git repository, put its URL between `$`s bef
 ```markdown
 Text below is taken from a remote repository.
 
-<<include>
+<include>
     $https://github.com/foo/bar.git$path/to/doc.md
 </include>
 ```
@@ -233,7 +235,7 @@ If the repository alias is defined in the project config, you can use it instead
 And then in the source:
 
 ```markdown
-<<include>$foo$path/to/doc.md</include>
+<include>$foo$path/to/doc.md</include>
 ```
 
 You can also specify a particular branch or revision:
@@ -241,7 +243,7 @@ You can also specify a particular branch or revision:
 ```markdown
 Text below is taken from a remote repository on branch develop.
 
-<<include>$foo#develop$path/to/doc.md</include>
+<include>$foo#develop$path/to/doc.md</include>
 ```
 
 To include a part of a document between two headings, use the `#Start:Finish` syntax after the file path:
@@ -249,15 +251,15 @@ To include a part of a document between two headings, use the `#Start:Finish` sy
 ```markdown
 Include content from “Intro” up to “Credits”:
 
-<<include>sample.md#Intro:Credits</include>
+<include>sample.md#Intro:Credits</include>
 
 Include content from start up to “Credits”:
 
-<<include>sample.md#:Credits</include>
+<include>sample.md#:Credits</include>
 
 Include content from “Intro” up to the next heading of the same level:
 
-<<include>sample.md#Intro</include>
+<include>sample.md#Intro</include>
 ```
 
 In the legacy syntax, problems may occur with the use of `$`, `#`, and `:` characters in filenames and headings, since these characters may be interpreted as delimeters.
