@@ -44,7 +44,7 @@ preprocessors:
 :   Flag that defines whether includes in included documents should be processed.
 
 `extensions`
-:   List of file extensions where includes will be processed. Might be useful if you want to include content into config-file or a template-file. Default: `[md]`.
+:   List of file extensions that defines the types of files which should be processed looking for include statements. Might be useful if you need to include some content from third-party sources into non-Markdown files like configs, templates, reports, etc. Defaults to `[md]`.
 
 `aliases`
 :   Mapping from aliases to Git repository URLs. Once defined here, an alias can be used to refer to the repository instead of its full URL.
@@ -196,7 +196,7 @@ Text below is taken from a remote repository on branch develop.
     >
     >    By default, if a local file is included, `project_root` points to the top-level directory of the current Foliant project, and if a file in a remote Git repository is referenced, `project_root` points to the top-level directory of this repository. In most cases you don’t need to override the default behavior.
 
-Different options can be combined. For example, use both `sethead` and `nohead` if you want to include a section with a custom heading:
+Different options can be combined. For example, use both `sethead` and `nohead` if you need to include a section with a custom heading:
 
 ```markdown
 # My Custom Heading
