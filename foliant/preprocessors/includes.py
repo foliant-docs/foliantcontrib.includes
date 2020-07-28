@@ -778,13 +778,15 @@ class Preprocessor(BasePreprocessor):
                 # If the tag body is empty, the new syntax is expected:
                 #
                 # <include
-                #     repo_url="..." revision="..." path="..." | src="..."
+                #     repo_url="..." revision="..." path="..." | url="..." | src="..."
                 #     project_root="..."
                 #     from_heading="..." to_heading="..."
                 #     from_id="..." to_id="..."
                 #     to_end="..."
                 #     sethead="..." nohead="..."
                 #     inline="..."
+                #     wrap_code="..."
+                #     code_language="..."
                 # ></include>
 
                 if body:
@@ -974,8 +976,43 @@ class Preprocessor(BasePreprocessor):
                         current_sethead
                     )
 
+                wrap_code = options.get('wrap_code', '')
+
+                if wrap_code == 'triple_backticks' or wrap_code == 'triple_tildas':
+                    if wrap_code == 'triple_backticks':
+                        self.logger.debug('Wrapping included content as fence code block with triple backticks')
+
+                        wrapper = '```'
+
+                    elif wrap_code == 'triple_tildas':
+                        self.logger.debug('Wrapping included content as fence code block with triple tildas')
+
+                        wrapper = '~~~'
+
+                    code_language = options.get('code_language', '')
+
+                    if code_language:
+                        self.logger.debug(f'Specifying code language: {code_language}')
+
+                    else:
+                        self.logger.debug('Do not specify code language')
+
+                    if not processed_content_part.endswith('\n'):
+                        processed_content_part += '\n'
+
+                    processed_content_part = (
+                        f'{wrapper}{code_language}' + '\n' + processed_content_part + wrapper + '\n'
+                    )
+
+                elif wrap_code == 'single_backticks':
+                    self.logger.debug('Wrapping included content as inline code with single backticks')
+
+                    processed_content_part = '`' + processed_content_part + '`'
+
                 if options.get('inline'):
-                    self.logger.debug('Processing included content part as inline')
+                    self.logger.debug(
+                        'Processing included content part as inline, multiple lines will be stretched into one'
+                    )
 
                     processed_content_part = re.sub(r'\s+', ' ', processed_content_part).strip()
 

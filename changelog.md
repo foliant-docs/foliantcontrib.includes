@@ -1,7 +1,11 @@
+# 1.1.12
+
+-   Add the `wrap_code` and `code_language` attributes to mark up the included content as fence code block or inline code.
+
 # 1.1.11
 
--   New: `extensions` parameter to process file types different from .md
--   New: `url` attribute to include content from direct link to file
+-   Add the `extensions` config parameter to process file types different from `.md`.
+-   Add the `url` attribute to include content that is available by HTTP(S) URL.
 
 # 1.1.9
 
