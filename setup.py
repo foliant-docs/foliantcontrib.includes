@@ -16,7 +16,7 @@ setup(
     description=SHORT_DESCRIPTION,
     long_description=LONG_DESCRIPTION,
     long_description_content_type='text/markdown',
-    version='1.1.11',
+    version='1.1.12',
     author='Konstantin Molchanov',
     author_email='moigagoo@live.com',
     url='https://github.com/foliant-docs/foliantcontrib.includes',
@@ -24,8 +24,8 @@ setup(
     license='MIT',
     platforms='any',
     install_requires=[
-        'foliant>=1.0.10',
-        'foliantcontrib.escapecode>=1.0.0',
+        'foliant>=1.0.12',
+        'foliantcontrib.escapecode>=1.0.3',
         'foliantcontrib.meta>=1.3.0'
     ],
     classifiers=[

@@ -1,7 +1,6 @@
-import os
 import re
-import shutil
 import urllib
+from shutil import rmtree
 from io import StringIO
 from hashlib import md5
 from pathlib import Path
@@ -19,13 +18,16 @@ class Preprocessor(BasePreprocessor):
         'aliases': {},
         'extensions': ['md']
     }
+
     tags = 'include',
 
     _heading_pattern = re.compile(
         r'^(?P<hashes>\#{1,6})\s+(?P<content>.*\S+)(?P<tail>\s*)$',
         flags=re.MULTILINE
     )
+
     _image_pattern = re.compile(r'\!\[(?P<caption>.*)\]\((?P<path>((?!:\/\/).)+)\)')
+
     _tag_body_pattern = re.compile(
         r'(\$(?P<repo>[^\#^\$]+)(\#(?P<revision>[^\$]+))?\$)?' +
         r'(?P<path>[^\#]+)' +
@@ -35,8 +37,8 @@ class Preprocessor(BasePreprocessor):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self._cache_path = self.project_path / self.options['cache_dir']
-        self._downloaded_path = self._cache_path / '_downloaded'
+        self._cache_dir_path = self.project_path / self.options['cache_dir']
+        self._downloaded_dir_path = self._cache_dir_path / '_downloaded_content'
 
         self.logger = self.logger.getChild('includes')
 
@@ -64,6 +66,7 @@ class Preprocessor(BasePreprocessor):
             if item.name == file_name:
                 result = item
                 break
+
         else:
             raise FileNotFoundError(file_name)
 
@@ -71,30 +74,48 @@ class Preprocessor(BasePreprocessor):
 
         return result
 
-    def _download_file(self, url: str) -> Path:
+    def _download_file_from_url(self, url: str) -> Path:
+        '''Download file as the content of resource located at specified URL.
+        Place downloaded file into the cache directory with a unique name.
+
+        :param url: URL to get the included file content
+
+        :returns: Path to the downloaded file
         '''
-        Download file over the direct link and save it under a unique name in
-        the cache dir.
 
-        :param url: direct url to the included file
+        self.logger.debug(f'The included file content should be requested at the URL: {url}')
 
-        :returns: path to the stored copy of the remote file
-        '''
-        self.logger.debug(f'Downloading file from url {url}')
+        url_path = Path(urllib.parse.urlparse(url).path)
+        extra_stem = ''
+        extra_suffix = ''
 
-        base_filename = os.path.basename(urllib.parse.urlparse(url).path)
-        uid = md5(url.encode()).hexdigest()[:7]
-        filepath = self._downloaded_path / uid.join(os.path.splitext(base_filename))
-        self.logger.debug(f'File will be saved to {filepath}')
+        if not url_path.stem:
+            extra_stem = 'content'
 
-        if filepath.exists():
-            self.logger.debug(f'This file was already downloaded on this run')
-            return filepath
+        if not url_path.suffix:
+            extra_suffix = '.inc'
 
-        data = urllib.request.urlopen(url).read().decode('utf-8')
-        with open(filepath, 'w', encoding='utf8') as f:
-            f.write(data)
-        return filepath
+        downloaded_file_path = (
+            self._downloaded_dir_path /
+            f'{md5(url.encode()).hexdigest()[:8]}_{url_path.stem}{extra_stem}{url_path.suffix}{extra_suffix}'
+        )
+
+        self.logger.debug(f'Downloaded file path: {downloaded_file_path}')
+
+        if not downloaded_file_path.exists():
+            self.logger.debug('Performing URL request')
+
+            downloaded_content = urllib.request.urlopen(url).read().decode('utf-8')
+
+            self._downloaded_dir_path.mkdir(parents=True, exist_ok=True)
+
+            with open(downloaded_file_path, 'w', encoding='utf8') as downloaded_file:
+                downloaded_file.write(downloaded_content)
+
+        else:
+            self.logger.debug('File found in cache, it was already downloaded at this run')
+
+        return downloaded_file_path
 
     def _sync_repo(
         self,
@@ -110,7 +131,7 @@ class Preprocessor(BasePreprocessor):
         '''
 
         repo_name = repo_url.split('/')[-1].rsplit('.', maxsplit=1)[0]
-        repo_path = (self._cache_path / repo_name).resolve()
+        repo_path = (self._cache_dir_path / repo_name).resolve()
 
         self.logger.debug(f'Synchronizing with repo; URL: {repo_url}, revision: {revision}')
 
@@ -778,13 +799,15 @@ class Preprocessor(BasePreprocessor):
                 # If the tag body is empty, the new syntax is expected:
                 #
                 # <include
-                #     repo_url="..." revision="..." path="..." | src="..."
+                #     repo_url="..." revision="..." path="..." | url="..." | src="..."
                 #     project_root="..."
                 #     from_heading="..." to_heading="..."
                 #     from_id="..." to_id="..."
                 #     to_end="..."
                 #     sethead="..." nohead="..."
                 #     inline="..."
+                #     wrap_code="..."
+                #     code_language="..."
                 # ></include>
 
                 if body:
@@ -907,9 +930,9 @@ class Preprocessor(BasePreprocessor):
                         )
 
                     elif options.get('url'):
-                        self.logger.debug('File referenced via direct link')
+                        self.logger.debug('File to get by URL referenced')
 
-                        included_file_path = self._download_file(options['url'])
+                        included_file_path = self._download_file_from_url(options['url'])
 
                         self.logger.debug(f'Resolved path to the included file: {included_file_path}')
 
@@ -974,8 +997,43 @@ class Preprocessor(BasePreprocessor):
                         current_sethead
                     )
 
+                wrap_code = options.get('wrap_code', '')
+
+                if wrap_code == 'triple_backticks' or wrap_code == 'triple_tildas':
+                    if wrap_code == 'triple_backticks':
+                        self.logger.debug('Wrapping included content as fence code block with triple backticks')
+
+                        wrapper = '```'
+
+                    elif wrap_code == 'triple_tildas':
+                        self.logger.debug('Wrapping included content as fence code block with triple tildas')
+
+                        wrapper = '~~~'
+
+                    code_language = options.get('code_language', '')
+
+                    if code_language:
+                        self.logger.debug(f'Specifying code language: {code_language}')
+
+                    else:
+                        self.logger.debug('Do not specify code language')
+
+                    if not processed_content_part.endswith('\n'):
+                        processed_content_part += '\n'
+
+                    processed_content_part = (
+                        f'{wrapper}{code_language}' + '\n' + processed_content_part + wrapper + '\n'
+                    )
+
+                elif wrap_code == 'single_backticks':
+                    self.logger.debug('Wrapping included content as inline code with single backticks')
+
+                    processed_content_part = '`' + processed_content_part + '`'
+
                 if options.get('inline'):
-                    self.logger.debug('Processing included content part as inline')
+                    self.logger.debug(
+                        'Processing included content part as inline, multiple lines will be stretched into one'
+                    )
 
                     processed_content_part = re.sub(r'\s+', ' ', processed_content_part).strip()
 
@@ -986,46 +1044,54 @@ class Preprocessor(BasePreprocessor):
 
         return processed_content
 
-    def get_extension_list(self) -> list:
-        '''
-        Get list of specified extensions from `extensions` config param and convert
-        it into list of glob patterns for each of these exensions.
+    def _get_source_files_extensions(self) -> list:
+        '''Get list of specified extensions from the ``extensions`` config param,
+        and convert it into list of glob patterns for each file type.
 
-        :returns: list of glob patters for each file extension from config
+        :returns: List of glob patters for each file type specified in config
         '''
-        raw_list = self.options['extensions']
-        result = []
-        md_in_list = False
-        for ext in raw_list:
-            val = ext.lstrip('.')
-            result.append(f'*.{val}')
-            if val == 'md':
-                md_in_list = True
-        if not md_in_list:
-            self.logger.warning('Markdown extension "md" not in extensions list! Did you forget to put it there?')
-        return result
+
+        extensions_from_config = list(set(self.options['extensions']))
+        source_files_extensions = []
+        md_involved = False
+
+        for extension in extensions_from_config:
+            extension = extension.lstrip('.')
+
+            source_files_extensions.append(f'*.{extension}')
+
+            if extension == 'md':
+                md_involved = True
+
+        if not md_involved:
+            self.logger.warning(
+                "Markdown file extension 'md' is not mentioned in the extensions list! " +
+                "Didn’t you forget to put it there?"
+            )
+
+        return source_files_extensions
 
     def apply(self):
         self.logger.info('Applying preprocessor')
 
-        # cleaning up downloads because files may have changed
-        shutil.rmtree(self._downloaded_path, ignore_errors=True)
-        self._downloaded_path.mkdir(parents=True)
+        # Cleaning up downloads because the content of remote source may have modified
+        rmtree(self._downloaded_dir_path, ignore_errors=True)
 
-        extensions = self.get_extension_list()
-        for ext in extensions:
-            for source_file_path in self.working_dir.rglob(ext):
-                with open(source_file_path, encoding='utf8') as markdown_file:
-                    content = markdown_file.read()
+        source_files_extensions = self._get_source_files_extensions()
+
+        for source_files_extension in source_files_extensions:
+            for source_file_path in self.working_dir.rglob(source_files_extension):
+                with open(source_file_path, encoding='utf8') as source_file:
+                    source_content = source_file.read()
 
                 processed_content = self.process_includes(
                     source_file_path,
-                    content,
+                    source_content,
                     self.project_path.resolve()
                 )
 
                 if processed_content:
-                    with open(source_file_path, 'w', encoding='utf8') as markdown_file:
-                        markdown_file.write(processed_content)
+                    with open(source_file_path, 'w', encoding='utf8') as processed_file:
+                        processed_file.write(processed_content)
 
         self.logger.info('Preprocessor applied')

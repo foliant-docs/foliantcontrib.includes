@@ -44,7 +44,7 @@ preprocessors:
 :   Flag that defines whether includes in included documents should be processed.
 
 `extensions`
-:   List of file extensions where includes will be processed. Might be useful if you want to include content into config-file or a template-file. Default: `[md]`.
+:   List of file extensions that defines the types of files which should be processed looking for include statements. Might be useful if you need to include some content from third-party sources into non-Markdown files like configs, templates, reports, etc. Defaults to `[md]`.
 
 `aliases`
 :   Mapping from aliases to Git repository URLs. Once defined here, an alias can be used to refer to the repository instead of its full URL.
@@ -116,7 +116,7 @@ Text below is taken from a remote repository on branch develop.
 :   Path to the local file to include.
 
 `url`
-:   Direct link to remote file, which needs to be included.
+:   HTTP(S) URL of the content that should be included.
 
 `repo_url`
 :   Full remote Git repository URL without a revision.
@@ -136,13 +136,13 @@ Text below is taken from a remote repository on branch develop.
 :   Revision of the Git repository.
 
 `from_heading`
-:   Full content of the starting heading when it’s necessary to include some part of the referenced file content.
+:   Full content of the starting heading when it’s necessary to include some part of the referenced file content. If the `to_heading`, `to_id`, or `to_end` attribute is not specified, the preprocessor cuts the included content to the next heading of the same level.
 
 `to_heading`
 :   Full content of the ending heading when it’s necessary to include some part of the referenced file content.
 
 `from_id`
-:   ID of the starting heading or starting anchor when it’s necessary to include some part of the referenced file content. The `from_id` attribute has higher priority than `from_heading`.
+:   ID of the starting heading or starting anchor when it’s necessary to include some part of the referenced file content. The `from_id` attribute has higher priority than `from_heading`. If the `to_heading`, `to_id`, or `to_end` attribute is not specified, the preprocessor cuts the included content to the next heading of the same level.
 
 `to_id`
 :   ID of the ending heading or ending anchor when it’s necessary to include some part of the referenced file content. The `to_id` attribute has higher priority than `to_heading`.
@@ -157,6 +157,12 @@ Text below is taken from a remote repository on branch develop.
         <anchor>one_more_custom_id</anchor>
 
     Here `Some Heading {#custom_id}` is the full content of the heading, `custom_id` is its ID, and `one_more_custom_id` is the ID of the anchor.
+
+`wrap_code`
+:   Attribute that allows to mark up the included content as fence code block or inline code by wrapping the content with additional Markdown syntax constructions. Available values are: `triple_backticks`—to add triple backticks separated with newlines before and after the included content; `triple_tildas`—to do the same but using triple tildas; `single_backticks`—to add single backticks before and after the included content without adding extra newlines. Note that this attribute doesn’t affect the included content. So if the content consists of multiple lines, and the `wrap_code` attribute with the value `single_backticks` is set, all newlines within the content will be kept. To perform forced conversion of multiple lines into one, use the `inline` attribute.
+
+`code_language`
+:   Language of the included code snippet that should be additionally marked up as fence code block by using the `wrap_code` attribute with the value `triple_backticks` or `triple_tildas`. Note that the `code_language` attribute doesn’t take effect to inline code that is obtained when the `single_backticks` value is used. The value of this attribute should be a string without whitespace characters, usually in lowercase; examples: `python`, `bash`, `json`.
 
 ### Optional Attributes Supported in Both Syntax Variants
 
@@ -190,7 +196,7 @@ Text below is taken from a remote repository on branch develop.
     >
     >    By default, if a local file is included, `project_root` points to the top-level directory of the current Foliant project, and if a file in a remote Git repository is referenced, `project_root` points to the top-level directory of this repository. In most cases you don’t need to override the default behavior.
 
-Different options can be combined. For example, use both `sethead` and `nohead` if you want to include a section with a custom heading:
+Different options can be combined. For example, use both `sethead` and `nohead` if you need to include a section with a custom heading:
 
 ```markdown
 # My Custom Heading
