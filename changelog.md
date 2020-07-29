@@ -1,3 +1,7 @@
+# 1.1.13
+
+-   When getting the included content by URL, take into account the `charset` parameter of the `Content-Type` response header field.
+
 # 1.1.12
 
 -   Add the `wrap_code` and `code_language` attributes to mark up the included content as fence code block or inline code.

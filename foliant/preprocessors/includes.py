@@ -105,7 +105,18 @@ class Preprocessor(BasePreprocessor):
         if not downloaded_file_path.exists():
             self.logger.debug('Performing URL request')
 
-            downloaded_content = urllib.request.urlopen(url).read().decode('utf-8')
+            response = urllib.request.urlopen(url)
+            charset = 'utf-8'
+
+            if response.headers['Content-Type']:
+                charset_match = re.search(r'(^|[\s;])charset=(?P<charset>[^\s;]+)', response.headers['Content-Type'])
+
+                if charset_match:
+                    charset = charset_match.group('charset')
+
+            self.logger.debug(f'Detected source charset: {charset}')
+
+            downloaded_content = response.read().decode(charset)
 
             self._downloaded_dir_path.mkdir(parents=True, exist_ok=True)
 
