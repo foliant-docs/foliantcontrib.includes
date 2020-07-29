@@ -1,6 +1,7 @@
 # 1.1.12
 
 -   Add the `wrap_code` and `code_language` attributes to mark up the included content as fence code block or inline code.
+-   Prevent to create cache directory when it’s not needed. Improve code style. Refactor a little.
 
 # 1.1.11
 
