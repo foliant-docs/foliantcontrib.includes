@@ -136,16 +136,18 @@ Text below is taken from a remote repository on branch develop.
 :   Revision of the Git repository.
 
 `from_heading`
-:   Full content of the starting heading when it’s necessary to include some part of the referenced file content. If the `to_heading`, `to_id`, or `to_end` attribute is not specified, the preprocessor cuts the included content to the next heading of the same level.
+:   Full content of the starting heading when it’s necessary to include some part of the referenced file content. If the `to_heading`, `to_id`, or `to_end` attribute is not specified, the preprocessor cuts the included content to the next heading of the same level. *The referenced heading is included.*
 
 `to_heading`
-:   Full content of the ending heading when it’s necessary to include some part of the referenced file content.
+:   Full content of the ending heading when it’s necessary to include some part of the referenced file content. *The referenced heading will not be included.*
 
 `from_id`
-:   ID of the starting heading or starting anchor when it’s necessary to include some part of the referenced file content. The `from_id` attribute has higher priority than `from_heading`. If the `to_heading`, `to_id`, or `to_end` attribute is not specified, the preprocessor cuts the included content to the next heading of the same level.
+:   ID of the starting heading or starting anchor when it’s necessary to include some part of the referenced file content. The `from_id` attribute has higher priority than `from_heading`. If the `to_heading`, `to_id`, or `to_end` attribute is not specified, the preprocessor cuts the included content to the next heading of the same level. *The referenced id is included.*
+
+> **NOTE:** If you want `from_id` and `to_id` features to work with [anchors](https://foliant-docs.github.io/docs/preprocessors/anchors/), make sure that anchors preprocessor is listed *after* includes in foliant.yml.
 
 `to_id`
-:   ID of the ending heading or ending anchor when it’s necessary to include some part of the referenced file content. The `to_id` attribute has higher priority than `to_heading`.
+:   ID of the ending heading or ending anchor when it’s necessary to include some part of the referenced file content. The `to_id` attribute has higher priority than `to_heading`. *The referenced id will not be included.*
 
 `to_end`
 :   Flag that tells the preprocessor to cut to the end of the included content. Otherwise, if `from_heading` or `from_id` is specified, the preprocessor cuts the included content to the next heading of the same level as the starting heading, or the heading that precedes the starting anchor.
