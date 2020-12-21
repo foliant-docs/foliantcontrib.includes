@@ -184,3 +184,25 @@ class TestIncludesBasic(TestCase):
             input_mapping=input_map,
             expected_mapping=expected_map,
         )
+
+    def test_extensions(self):
+        input_map = {
+            'index.md': '# My title\n\n<include src="sub/sub.md"></include>',
+            'index.j2': '# My title\n\n<include src="sub/sub.md"></include>',
+            'sub/sub.md': 'Included content'
+        }
+        expected_map = {
+            'index.md': '# My title\n\nIncluded content',
+            'index.j2': '# My title\n\n<include src="sub/sub.md"></include>',
+            'sub/sub.md': 'Included content'
+        }
+        self.ptf.test_preprocessor(
+            input_mapping=input_map,
+            expected_mapping=expected_map,
+        )
+        self.ptf.options = {'extensions': ['md', 'j2']}
+        expected_map = {
+            'index.md': '# My title\n\nIncluded content',
+            'index.j2': '# My title\n\nIncluded content',
+            'sub/sub.md': 'Included content'
+        }
