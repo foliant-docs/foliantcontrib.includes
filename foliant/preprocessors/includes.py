@@ -74,6 +74,11 @@ class Preprocessor(BasePreprocessor):
 
         return result
 
+    # def create_include_link (self, url: str):
+
+    #     print(' ')
+
+
     def _download_file_from_url(self, url: str) -> Path:
         '''Download file as the content of resource located at specified URL.
         Place downloaded file into the cache directory with a unique name.
@@ -107,7 +112,7 @@ class Preprocessor(BasePreprocessor):
 
             response = urllib.request.urlopen(url)
             charset = 'utf-8'
-
+            
             if response.headers['Content-Type']:
                 charset_match = re.search(r'(^|[\s;])charset=(?P<charset>[^\s;]+)', response.headers['Content-Type'])
 
@@ -117,10 +122,31 @@ class Preprocessor(BasePreprocessor):
             self.logger.debug(f'Detected source charset: {charset}')
 
             downloaded_content = response.read().decode(charset)
-
+                  
             self._downloaded_dir_path.mkdir(parents=True, exist_ok=True)
 
+            # The beginning of the block codes for converting relative paths to links
+            dict_new_link = {}
+            regexp_find_link = re.compile('\[.+?\]\(.+?\)')
+            regexp_find_path = re.compile('\(.+?\)')
+           
+            old_found_link = regexp_find_link.findall(downloaded_content)
+
+            for line in old_found_link:
+                exceptions_simbols = re.findall(r'http|@|:',line)
+                if exceptions_simbols:
+                    continue
+                else:
+                    relative_path = regexp_find_path.findall(line)
+                    sub_relative_path = re.findall(r'\[.+?\]', line)
+                    dict_new_link[line] = sub_relative_path[0] + '(' + url.rpartition('/')[0].replace('raw', 'blob')+'/'+ relative_path[0].partition('(')[2]
+            
+            for line in dict_new_link:
+                downloaded_content = downloaded_content.replace(line, dict_new_link[line])
+            # End of the conversion code block         
+
             with open(downloaded_file_path, 'w', encoding='utf8') as downloaded_file:
+                
                 downloaded_file.write(downloaded_content)
 
         else:
@@ -1094,7 +1120,7 @@ class Preprocessor(BasePreprocessor):
             for source_file_path in self.working_dir.rglob(source_files_extension):
                 with open(source_file_path, encoding='utf8') as source_file:
                     source_content = source_file.read()
-
+                    
                 processed_content = self.process_includes(
                     source_file_path,
                     source_content,
