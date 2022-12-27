@@ -1,3 +1,7 @@
+# 1.1.14
+
+-   Fix `image_pattern` for `adjust_image_paths` method
+
 # 1.1.13
 
 -   When getting the included content by URL, take into account the `charset` parameter of the `Content-Type` response header field.
