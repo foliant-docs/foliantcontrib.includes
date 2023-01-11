@@ -125,6 +125,11 @@ Text below is taken from a remote repository on branch develop.
 :   Path to the file inside the remote Git repository.
 
     >    **Note**
+    >    
+    >    This parameter is required!
+         Its absence will lead to incorrect operation Foliant.
+
+    >    **Note**
     >
     >    If you are using the new syntax, the `src` attribute is required to include a local file, `url` is required to include a remote file, and the `repo_url` and `path` attributes are required to include a file from a remote Git repository. All other attributes are optional.
 
