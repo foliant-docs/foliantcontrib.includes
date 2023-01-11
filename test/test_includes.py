@@ -40,6 +40,18 @@ class TestIncludesBasic(TestCase):
             input_mapping=input_map,
             expected_mapping=expected_map,
         )
+    
+    def test_include_link(self):
+        input_map = {
+            'index.md': '# My title\n\n<include repo_url="https://github.com/foliant-docs/foliantcontrib.includes" revision="master" path="LICENSE"></include>',
+        }
+        expected_map = {
+             'index.md': f'# My title\n\n{data_file_content("../LICENSE")}',
+        }
+        self.ptf.test_preprocessor(
+            input_mapping=input_map,
+            expected_mapping=expected_map,
+        )
 
     def test_nohead(self):
         input_map = {
