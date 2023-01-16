@@ -132,6 +132,14 @@ Text below is taken from a remote repository on branch develop.
 <include url="https://gitlub.com/path/to/doc/raw/master/doc.md" nohead="true"></include>
 ```
 
+To include a code snippet, use `wrap_code` and `code_language` attributes:
+
+```markdown
+<include src="path/to/some/config.yaml"
+wrap_code="triple_backticks" code_language="yaml">
+</include>
+```
+
 #### Attributes
 
 `src`
