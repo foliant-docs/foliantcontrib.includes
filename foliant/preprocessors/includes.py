@@ -26,7 +26,7 @@ class Preprocessor(BasePreprocessor):
         flags=re.MULTILINE
     )
 
-    _image_pattern = re.compile(r'\!\[(?P<caption>.*)\]\((?P<path>((?!:\/\/).)+)\)')
+    _image_pattern = re.compile(r'\!\[(?P<caption>.*?)\]\((?P<path>((?!:\/\/).)+?)\)')
 
     _tag_body_pattern = re.compile(
         r'(\$(?P<repo>[^\#^\$]+)(\#(?P<revision>[^\$]+))?\$)?' +
