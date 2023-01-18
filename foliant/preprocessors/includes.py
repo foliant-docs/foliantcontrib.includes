@@ -74,10 +74,7 @@ class Preprocessor(BasePreprocessor):
 
         return result
 
-    # def create_include_link (self, url: str):
-
-    #     print(' ')
-
+   
     def create_full_link(self, repo_url: str, revision: str, path: str):
 
         if repo_url.endswith('.git'):
@@ -85,7 +82,6 @@ class Preprocessor(BasePreprocessor):
         
         full_repo_url=repo_url+'/tree/'+revision+ '/'+path.rpartition('/')[0]
 
-        print(full_repo_url)
         return full_repo_url
 
     def _download_file_from_url(self, url: str) -> Path:
@@ -984,14 +980,7 @@ class Preprocessor(BasePreprocessor):
                             repo_path / options.get('project_root', '')
                         ).resolve()
 
-                        # print("**********", options.get('repo_url'))
-                        # print("**********", options.get('revision'))
-                        # print("**********", options.get('path'))
-
-
                         include_link = self.create_full_link(options.get('repo_url'), options.get('revision'), options.get('path'))
-
-                        print(include_link)
 
                         self.logger.debug(f'Set new current project root path: {current_project_root_path}')
                         
