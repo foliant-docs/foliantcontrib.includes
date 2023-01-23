@@ -74,6 +74,20 @@ class Preprocessor(BasePreprocessor):
 
         return result
 
+   
+    def create_full_link(self, repo_url: str, revision: str, path: str):
+
+        if repo_url.endswith('.git'):
+            repo_url = repo_url[:-4]
+        
+        if revision:
+            full_repo_url=repo_url + '/tree/' + revision + '/' + path.rpartition('/')[0]
+            
+        else:
+            full_repo_url=repo_url + '/-/blob/master/' + path.rpartition('/')[0]
+           
+        return full_repo_url
+
     def _download_file_from_url(self, url: str) -> Path:
         '''Download file as the content of resource located at specified URL.
         Place downloaded file into the cache directory with a unique name.
@@ -107,7 +121,7 @@ class Preprocessor(BasePreprocessor):
 
             response = urllib.request.urlopen(url)
             charset = 'utf-8'
-
+            
             if response.headers['Content-Type']:
                 charset_match = re.search(r'(^|[\s;])charset=(?P<charset>[^\s;]+)', response.headers['Content-Type'])
 
@@ -117,10 +131,31 @@ class Preprocessor(BasePreprocessor):
             self.logger.debug(f'Detected source charset: {charset}')
 
             downloaded_content = response.read().decode(charset)
-
+                  
             self._downloaded_dir_path.mkdir(parents=True, exist_ok=True)
 
+            # The beginning of the block codes for converting relative paths to links
+            dict_new_link = {}
+            regexp_find_link = re.compile('\[.+?\]\(.+?\)')
+            regexp_find_path = re.compile('\(.+?\)')
+           
+            old_found_link = regexp_find_link.findall(downloaded_content)
+
+            for line in old_found_link:
+                exceptions_simbols = re.findall(r'http|@|:',line)
+                if exceptions_simbols:
+                    continue
+                else:
+                    relative_path = regexp_find_path.findall(line)
+                    sub_relative_path = re.findall(r'\[.+?\]', line)
+                    dict_new_link[line] = sub_relative_path[0] + '(' + url.rpartition('/')[0].replace('raw', 'blob')+'/'+ relative_path[0].partition('(')[2]
+            
+            for line in dict_new_link:
+                downloaded_content = downloaded_content.replace(line, dict_new_link[line])
+            # End of the conversion code block         
+
             with open(downloaded_file_path, 'w', encoding='utf8') as downloaded_file:
+                
                 downloaded_file.write(downloaded_content)
 
         else:
@@ -652,7 +687,8 @@ class Preprocessor(BasePreprocessor):
         to_id: str or None = None,
         to_end: bool = False,
         sethead: int or None = None,
-        nohead: bool = False
+        nohead: bool = False,
+        include_link: str or None = None
     ) -> str:
         '''Replace a local include statement with the file content. Necessary
         adjustments are applied to the content: cut between certain headings,
@@ -677,9 +713,31 @@ class Preprocessor(BasePreprocessor):
             f'Included file path: {included_file_path}, from heading: {from_heading}, ' +
             f'to heading: {to_heading}, sethead: {sethead}, nohead: {nohead}'
         )
-
+        
         with open(included_file_path, encoding='utf8') as included_file:
             included_content = included_file.read()
+
+             # The beginning of the block codes for converting relative paths to links
+            if include_link:
+                dict_new_link = {}
+                regexp_find_link = re.compile('\[.+?\]\(.+?\)')
+                regexp_find_path = re.compile('\(.+?\)')
+            
+                old_found_link = regexp_find_link.findall(included_content)
+
+                for line in old_found_link:
+                    exceptions_simbols = re.findall(r'http|@|:',line)
+                    if exceptions_simbols:
+                        continue
+                    else:
+                        relative_path = regexp_find_path.findall(line)
+                        sub_relative_path = re.findall(r'\[.+?\]', line)
+                        dict_new_link[line] = sub_relative_path[0] + '(' + include_link.rpartition('/')[0].replace('raw', 'blob')+'/'+ relative_path[0].partition('(')[2]
+                
+                for line in dict_new_link:
+                    included_content = included_content.replace(line, dict_new_link[line])
+            # End of the conversion code block         
+
 
             if self.config.get('escape_code', False):
                 if isinstance(self.config['escape_code'], dict):
@@ -736,7 +794,7 @@ class Preprocessor(BasePreprocessor):
                 '!rel_path',
                 included_file_path.parent
             )
-
+           
         return included_content
 
     def process_includes(
@@ -926,8 +984,10 @@ class Preprocessor(BasePreprocessor):
                             repo_path / options.get('project_root', '')
                         ).resolve()
 
-                        self.logger.debug(f'Set new current project root path: {current_project_root_path}')
+                        include_link = self.create_full_link(options.get('repo_url'), options.get('revision'), options.get('path'))
 
+                        self.logger.debug(f'Set new current project root path: {current_project_root_path}')
+                        
                         processed_content_part = self._process_include(
                             included_file_path=included_file_path,
                             project_root_path=current_project_root_path,
@@ -937,7 +997,8 @@ class Preprocessor(BasePreprocessor):
                             to_id=options.get('to_id'),
                             to_end=options.get('to_end'),
                             sethead=current_sethead,
-                            nohead=options.get('nohead')
+                            nohead=options.get('nohead'),
+                            include_link=include_link
                         )
 
                     elif options.get('url'):
@@ -1094,7 +1155,7 @@ class Preprocessor(BasePreprocessor):
             for source_file_path in self.working_dir.rglob(source_files_extension):
                 with open(source_file_path, encoding='utf8') as source_file:
                     source_content = source_file.read()
-
+                    
                 processed_content = self.process_includes(
                     source_file_path,
                     source_content,
