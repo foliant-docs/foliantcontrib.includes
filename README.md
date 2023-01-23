@@ -113,7 +113,7 @@ Text below is taken from a remote repository on branch develop.
 To include a text from HTTP(S) URL use the `url` attributes:
 
 ```markdown
-Text below is taken from a remote repository on branch develop.
+Text below is taken from a remote repository on the default branch.
 
 <include url="https://github.com/foo/bar/path/to/doc.md"></include>
 ```
@@ -156,7 +156,7 @@ wrap_code="triple_backticks" code_language="yaml">
 
 >    **Note**
 >    
->    This parameter is required!
+>    Path parameter is required!
         Its absence will lead to incorrect operation Foliant.
 
 >    **Note**
@@ -305,4 +305,4 @@ Include content from “Intro” up to the next heading of the same level:
 <include>sample.md#Intro</include>
 ```
 
-In the legacy syntax, problems may occur with the use of `$`, `#`, and `:` characters in filenames and headings, since these characters may be interpreted as delimeters.
+In the legacy syntax, problems may occur with the use of `$`, `#`, and `:` characters in filenames and headings, since these characters may be interpreted as delimiters.
