@@ -80,13 +80,13 @@ class Preprocessor(BasePreprocessor):
         if repo_url.endswith('.git'):
             repo_url = repo_url[:-4]
         
-        if path:
-            full_repo_url=repo_url+'/tree/'+revision+ '/'+path.rpartition('/')[0]
-            return full_repo_url
+        if revision:
+            full_repo_url=repo_url + '/tree/' + revision + '/' + path.rpartition('/')[0]
+            
         else:
-            self.logger.error(f'The path attribute of the repo_url parameter is missing: {repo_url}')
-            print(f'The path attribute of the repo_url parameter is missing: {repo_url}')
-
+            full_repo_url=repo_url + '/-/blob/master/' + path.rpartition('/')[0]
+           
+        return full_repo_url
 
     def _download_file_from_url(self, url: str) -> Path:
         '''Download file as the content of resource located at specified URL.
