@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest import TestCase
 from foliant_test.preprocessor import PreprocessorTestFramework
 from .utils import data_file_content
+import urllib.request
 
 
 logging.disable(logging.CRITICAL)
@@ -28,6 +29,18 @@ class TestIncludesBasic(TestCase):
             input_mapping=input_map,
             expected_mapping=expected_map,
         )
+    
+    def test_url(self):
+        input_map = {
+            'index.md': '# My title\n\n<include url="https://github.com/foliant-docs/foliantcontrib.includes/raw/master/LICENSE" nohead="true"></include>',
+        }
+        expected_map = {
+            'index.md': f'# My title\n\n{data_file_content("../LICENSE")}',
+        }
+        self.ptf.test_preprocessor(
+            input_mapping=input_map,
+            expected_mapping=expected_map,
+        )
 
     def test_repo_path(self):
         input_map = {
@@ -35,6 +48,18 @@ class TestIncludesBasic(TestCase):
         }
         expected_map = {
             'index.md': f'# My title\n\n{data_file_content("../LICENSE")}',
+        }
+        self.ptf.test_preprocessor(
+            input_mapping=input_map,
+            expected_mapping=expected_map,
+        )
+        
+    def test_include_link(self):
+        input_map = {
+            'index.md': '# My title\n\n<include repo_url="https://github.com/foliant-docs/foliantcontrib.includes" revision="master" path="LICENSE"></include>',
+        }
+        expected_map = {
+             'index.md': f'# My title\n\n{data_file_content("../LICENSE")}',
         }
         self.ptf.test_preprocessor(
             input_mapping=input_map,

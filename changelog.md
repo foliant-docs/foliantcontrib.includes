@@ -1,3 +1,8 @@
+# 1.1.15
+
+- Feat: recursive link processing for _url_ and _repo_url_
+
+
 # 1.1.14
 
 -   Fix `image_pattern` for `adjust_image_paths` method

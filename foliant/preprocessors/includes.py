@@ -45,9 +45,9 @@ class Preprocessor(BasePreprocessor):
         self.logger.debug(f'Preprocessor inited: {self.__dict__}')
 
     def _find_file(
-        self,
-        file_name: str,
-        lookup_dir: Path
+            self,
+            file_name: str,
+            lookup_dir: Path
     ) -> Path or None:
         '''Find a file in a directory by name. Check subdirectories recursively.
 
@@ -74,6 +74,19 @@ class Preprocessor(BasePreprocessor):
 
         return result
 
+    def create_full_link(self, repo_url: str, revision: str, path: str):
+
+        if repo_url.endswith('.git'):
+            repo_url = repo_url[:-4]
+
+        if revision:
+            full_repo_url = repo_url + '/tree/' + revision + '/' + path.rpartition('/')[0]
+
+        else:
+            full_repo_url = repo_url + '/-/blob/master/' + path.rpartition('/')[0]
+
+        return full_repo_url
+
     def _download_file_from_url(self, url: str) -> Path:
         '''Download file as the content of resource located at specified URL.
         Place downloaded file into the cache directory with a unique name.
@@ -96,8 +109,8 @@ class Preprocessor(BasePreprocessor):
             extra_suffix = '.inc'
 
         downloaded_file_path = (
-            self._downloaded_dir_path /
-            f'{md5(url.encode()).hexdigest()[:8]}_{url_path.stem}{extra_stem}{url_path.suffix}{extra_suffix}'
+                self._downloaded_dir_path /
+                f'{md5(url.encode()).hexdigest()[:8]}_{url_path.stem}{extra_stem}{url_path.suffix}{extra_suffix}'
         )
 
         self.logger.debug(f'Downloaded file path: {downloaded_file_path}')
@@ -120,7 +133,30 @@ class Preprocessor(BasePreprocessor):
 
             self._downloaded_dir_path.mkdir(parents=True, exist_ok=True)
 
+            # The beginning of the block codes for converting relative paths to links
+            dict_new_link = {}
+            regexp_find_link = re.compile('\[.+?\]\(.+?\)')
+            regexp_find_path = re.compile('\(.+?\)')
+
+            old_found_link = regexp_find_link.findall(downloaded_content)
+
+            for line in old_found_link:
+                exceptions_characters = re.findall(r'http|@|:', line)
+                if exceptions_characters:
+                    continue
+                else:
+                    relative_path = regexp_find_path.findall(line)
+                    sub_relative_path = re.findall(r'\[.+?\]', line)
+                    dict_new_link[line] = sub_relative_path[0] + '(' + url.rpartition('/')[0].replace('raw',
+                                                                                                      'blob') + '/' + \
+                                          relative_path[0].partition('(')[2]
+
+            for line in dict_new_link:
+                downloaded_content = downloaded_content.replace(line, dict_new_link[line])
+            # End of the conversion code block         
+
             with open(downloaded_file_path, 'w', encoding='utf8') as downloaded_file:
+
                 downloaded_file.write(downloaded_content)
 
         else:
@@ -129,9 +165,9 @@ class Preprocessor(BasePreprocessor):
         return downloaded_file_path
 
     def _sync_repo(
-        self,
-        repo_url: str,
-        revision: str or None = None
+            self,
+            repo_url: str,
+            revision: str or None = None
     ) -> Path:
         '''Clone a Git repository to the cache dir. If it has been cloned before, update it.
 
@@ -190,9 +226,9 @@ class Preprocessor(BasePreprocessor):
         return repo_path
 
     def _shift_headings(
-        self,
-        content: str,
-        shift: int
+            self,
+            content: str,
+            shift: int
     ) -> str:
         '''Shift Markdown headings in a string by a given value. The shift
         can be positive or negative.
@@ -221,8 +257,8 @@ class Preprocessor(BasePreprocessor):
         return self._heading_pattern.sub(_sub, content)
 
     def _find_top_heading_level(
-        self,
-        content: str
+            self,
+            content: str
     ) -> int:
         '''Find the highest level heading (i.e. having the least '#'s)
         in a Markdown string.
@@ -245,15 +281,15 @@ class Preprocessor(BasePreprocessor):
         return result if result < float('inf') else 0
 
     def _cut_from_position_to_position(
-        self,
-        content: str,
-        from_heading: str or None = None,
-        to_heading: str or None = None,
-        from_id: str or None = None,
-        to_id: str or None = None,
-        to_end: bool = False,
-        sethead: int or None = None,
-        nohead: bool = False
+            self,
+            content: str,
+            from_heading: str or None = None,
+            to_heading: str or None = None,
+            from_id: str or None = None,
+            to_id: str or None = None,
+            to_end: bool = False,
+            sethead: int or None = None,
+            nohead: bool = False
     ) -> str:
         '''Cut part of Markdown string between two positions,
         set internal heading level, and remove top heading.
@@ -479,9 +515,9 @@ class Preprocessor(BasePreprocessor):
         return result
 
     def _adjust_image_paths(
-        self,
-        content: str,
-        markdown_file_path: Path
+            self,
+            content: str,
+            markdown_file_path: Path
     ) -> str:
         '''Locate images referenced in a Markdown string and replace their paths
         with the absolute ones.
@@ -506,10 +542,10 @@ class Preprocessor(BasePreprocessor):
         return self._image_pattern.sub(_sub, content)
 
     def _adjust_paths_in_tags_attributes(
-        self,
-        content: str,
-        modifier: str,
-        base_path: Path
+            self,
+            content: str,
+            modifier: str,
+            base_path: Path
     ) -> str:
         '''Locate pseudo-XML tags in Markdown string. Replace the paths
         that are specified as values of pseudo-XML tags attributes
@@ -563,8 +599,8 @@ class Preprocessor(BasePreprocessor):
         return tag_pattern.sub(sub_tag, content)
 
     def _get_src_file_path(
-        self,
-        markdown_file_path: Path
+            self,
+            markdown_file_path: Path
     ) -> Path:
         '''Translate the path of Markdown file that is located inside the temporary working directory
         into the path of the corresponding Markdown file that is located inside the source directory
@@ -583,9 +619,9 @@ class Preprocessor(BasePreprocessor):
         )
 
         path_mapped_to_src_dir = (
-            self.project_path.resolve() /
-            self.config['src_dir'] /
-            path_relative_to_working_dir
+                self.project_path.resolve() /
+                self.config['src_dir'] /
+                path_relative_to_working_dir
         )
 
         self.logger.debug(
@@ -596,9 +632,9 @@ class Preprocessor(BasePreprocessor):
         return path_mapped_to_src_dir
 
     def _get_included_file_path(
-        self,
-        user_specified_path: str or Path,
-        current_processed_file_path: Path
+            self,
+            user_specified_path: str or Path,
+            current_processed_file_path: Path
     ) -> Path:
         '''Resolve user specified path to the local included file.
 
@@ -618,9 +654,9 @@ class Preprocessor(BasePreprocessor):
         self.logger.debug(f'User-specified included file path: {included_file_path}')
 
         if (
-            self.working_dir.resolve() in current_processed_file_path.parents
-            and
-            self.working_dir.resolve() not in included_file_path.parents
+                self.working_dir.resolve() in current_processed_file_path.parents
+                and
+                self.working_dir.resolve() not in included_file_path.parents
         ):
             self.logger.debug(
                 'Currently processed file is located inside the working dir, ' +
@@ -630,7 +666,7 @@ class Preprocessor(BasePreprocessor):
             )
 
             included_file_path = (
-                self._get_src_file_path(current_processed_file_path).parent / user_specified_path
+                    self._get_src_file_path(current_processed_file_path).parent / user_specified_path
             ).resolve()
 
         else:
@@ -643,16 +679,17 @@ class Preprocessor(BasePreprocessor):
         return included_file_path
 
     def _process_include(
-        self,
-        included_file_path: Path,
-        project_root_path: Path or None = None,
-        from_heading: str or None = None,
-        to_heading: str or None = None,
-        from_id: str or None = None,
-        to_id: str or None = None,
-        to_end: bool = False,
-        sethead: int or None = None,
-        nohead: bool = False
+            self,
+            included_file_path: Path,
+            project_root_path: Path or None = None,
+            from_heading: str or None = None,
+            to_heading: str or None = None,
+            from_id: str or None = None,
+            to_id: str or None = None,
+            to_end: bool = False,
+            sethead: int or None = None,
+            nohead: bool = False,
+            include_link: str or None = None
     ) -> str:
         '''Replace a local include statement with the file content. Necessary
         adjustments are applied to the content: cut between certain headings,
@@ -680,6 +717,28 @@ class Preprocessor(BasePreprocessor):
 
         with open(included_file_path, encoding='utf8') as included_file:
             included_content = included_file.read()
+
+            # The beginning of the block codes for converting relative paths to links
+            if include_link:
+                dict_new_link = {}
+                regexp_find_link = re.compile('\[.+?\]\(.+?\)')
+                regexp_find_path = re.compile('\(.+?\)')
+
+                old_found_link = regexp_find_link.findall(included_content)
+
+                for line in old_found_link:
+                    exceptions_characters = re.findall(r'http|@|:', line)
+                    if exceptions_characters:
+                        continue
+                    else:
+                        relative_path = regexp_find_path.findall(line)
+                        sub_relative_path = re.findall(r'\[.+?\]', line)
+                        dict_new_link[line] = sub_relative_path[0] + '(' + include_link.rpartition('/')[0].replace(
+                            'raw', 'blob') + '/' + relative_path[0].partition('(')[2]
+
+                for line in dict_new_link:
+                    included_content = included_content.replace(line, dict_new_link[line])
+            # End of the conversion code block         
 
             if self.config.get('escape_code', False):
                 if isinstance(self.config['escape_code'], dict):
@@ -740,11 +799,11 @@ class Preprocessor(BasePreprocessor):
         return included_content
 
     def process_includes(
-        self,
-        markdown_file_path: Path,
-        content: str,
-        project_root_path: Path or None = None,
-        sethead: int or None = None
+            self,
+            markdown_file_path: Path,
+            content: str,
+            project_root_path: Path or None = None,
+            sethead: int or None = None
     ) -> str:
         '''Replace all include statements with the respective file contents.
 
@@ -866,7 +925,7 @@ class Preprocessor(BasePreprocessor):
                         self.logger.debug(f'Resolved path to the included file: {included_file_path}')
 
                         current_project_root_path = (
-                            repo_path / options.get('project_root', '')
+                                repo_path / options.get('project_root', '')
                         ).resolve()
 
                         self.logger.debug(f'Set new current project root path: {current_project_root_path}')
@@ -894,7 +953,7 @@ class Preprocessor(BasePreprocessor):
 
                         if options.get('project_root'):
                             current_project_root_path = (
-                                markdown_file_path.parent / options.get('project_root')
+                                    markdown_file_path.parent / options.get('project_root')
                             ).resolve()
 
                             self.logger.debug(f'Set new current project root path: {current_project_root_path}')
@@ -923,8 +982,11 @@ class Preprocessor(BasePreprocessor):
                         self.logger.debug(f'Resolved path to the included file: {included_file_path}')
 
                         current_project_root_path = (
-                            repo_path / options.get('project_root', '')
+                                repo_path / options.get('project_root', '')
                         ).resolve()
+
+                        include_link = self.create_full_link(options.get('repo_url'), options.get('revision'),
+                                                             options.get('path'))
 
                         self.logger.debug(f'Set new current project root path: {current_project_root_path}')
 
@@ -937,7 +999,8 @@ class Preprocessor(BasePreprocessor):
                             to_id=options.get('to_id'),
                             to_end=options.get('to_end'),
                             sethead=current_sethead,
-                            nohead=options.get('nohead')
+                            nohead=options.get('nohead'),
+                            include_link=include_link
                         )
 
                     elif options.get('url'):
@@ -949,7 +1012,7 @@ class Preprocessor(BasePreprocessor):
 
                         if options.get('project_root'):
                             current_project_root_path = (
-                                markdown_file_path.parent / options.get('project_root')
+                                    markdown_file_path.parent / options.get('project_root')
                             ).resolve()
 
                             self.logger.debug(f'Set new current project root path: {current_project_root_path}')
@@ -975,7 +1038,7 @@ class Preprocessor(BasePreprocessor):
 
                         if options.get('project_root'):
                             current_project_root_path = (
-                                markdown_file_path.parent / options.get('project_root')
+                                    markdown_file_path.parent / options.get('project_root')
                             ).resolve()
 
                             self.logger.debug(f'Set new current project root path: {current_project_root_path}')
@@ -1033,7 +1096,7 @@ class Preprocessor(BasePreprocessor):
                         processed_content_part += '\n'
 
                     processed_content_part = (
-                        f'{wrapper}{code_language}' + '\n' + processed_content_part + wrapper + '\n'
+                            f'{wrapper}{code_language}' + '\n' + processed_content_part + wrapper + '\n'
                     )
 
                 elif wrap_code == 'single_backticks':

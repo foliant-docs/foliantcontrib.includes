@@ -110,6 +110,28 @@ Text below is taken from a remote repository on branch develop.
 <include repo_url="https://github.com/foo/bar.git" revision="develop" path="path/to/doc.md"></include>
 ```
 
+To include a text from HTTP(S) URL use the `url` attributes:
+
+```markdown
+Text below is taken from a remote repository on the default branch.
+
+<include url="https://github.com/foo/bar/path/to/doc.md"></include>
+```
+
+> **Note**
+>
+> For projects in GitHub, you must specify the full path to the raw file, while not specifying the file extension `.md`.
+    
+``` markdown
+<include url="https://github.com/path/to/doc/raw/master/doc" nohead="true"></include>
+```
+
+> For projects in GitLab, you must specify the full path to the raw file, and you must specify the file extension `.md`.
+
+```markdown
+<include url="https://gitlub.com/path/to/doc/raw/master/doc.md" nohead="true"></include>
+```
+
 To include a code snippet, use `wrap_code` and `code_language` attributes:
 
 ```markdown
@@ -117,8 +139,6 @@ To include a code snippet, use `wrap_code` and `code_language` attributes:
 wrap_code="triple_backticks" code_language="yaml">
 </include>
 ```
-
-
 
 #### Attributes
 
@@ -134,13 +154,18 @@ wrap_code="triple_backticks" code_language="yaml">
 `path`
 :   Path to the file inside the remote Git repository.
 
-    >    **Note**
-    >
-    >    If you are using the new syntax, the `src` attribute is required to include a local file, `url` is required to include a remote file, and the `repo_url` and `path` attributes are required to include a file from a remote Git repository. All other attributes are optional.
+>    **Note**
+>    
+>    Path parameter is required!
+        Its absence will lead to incorrect operation Foliant.
 
-    >    **Note**
-    >
-    >    Foliant 1.0.9 supports the processing of attribute values as YAML. You can precede the values of attributes by the `!path`, `!project_path`, and `!rel_path` modifiers (i.e. YAML tags). These modifiers can be useful in the `src`, `path`, and `project_root` attributes.
+>    **Note**
+>
+>    If you are using the new syntax, the `src` attribute is required to include a local file, `url` is required to include a remote file, and the `repo_url` and `path` attributes are required to include a file from a remote Git repository. All other attributes are optional.
+
+>    **Note**
+>
+>    Foliant 1.0.9 supports the processing of attribute values as YAML. You can precede the values of attributes by the `!path`, `!project_path`, and `!rel_path` modifiers (i.e. YAML tags). These modifiers can be useful in the `src`, `path`, and `project_root` attributes.
 
 `revision`
 :   Revision of the Git repository.
@@ -280,4 +305,4 @@ Include content from “Intro” up to the next heading of the same level:
 <include>sample.md#Intro</include>
 ```
 
-In the legacy syntax, problems may occur with the use of `$`, `#`, and `:` characters in filenames and headings, since these characters may be interpreted as delimeters.
+In the legacy syntax, problems may occur with the use of `$`, `#`, and `:` characters in filenames and headings, since these characters may be interpreted as delimiters.
