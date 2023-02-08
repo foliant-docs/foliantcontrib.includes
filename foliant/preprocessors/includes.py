@@ -651,6 +651,7 @@ class Preprocessor(BasePreprocessor):
 
         included_file_path = (current_processed_file_path.parent / user_specified_path).resolve()
 
+
         self.logger.debug(f'User-specified included file path: {included_file_path}')
 
         if (
@@ -675,7 +676,7 @@ class Preprocessor(BasePreprocessor):
             )
 
         self.logger.debug(f'Finally, included file path: {included_file_path}')
-
+        
         return included_file_path
 
     def _process_include(
@@ -714,6 +715,17 @@ class Preprocessor(BasePreprocessor):
             f'Included file path: {included_file_path}, from heading: {from_heading}, ' +
             f'to heading: {to_heading}, sethead: {sethead}, nohead: {nohead}'
         )
+        
+        if included_file_path.exists():
+            included_file_path = included_file_path
+        else:
+            self.logger.error(f'The url or repo_url link is not correct, file not found: {included_file_path}')
+            included_file_path=self._cache_dir_path/'error.md'
+            error_file = open(included_file_path, 'w+')
+            error_file.write(f'The url or repo_url link is not correct, file not found')
+            error_file.close()
+
+        
 
         with open(included_file_path, encoding='utf8') as included_file:
             included_content = included_file.read()
