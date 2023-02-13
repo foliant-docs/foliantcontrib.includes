@@ -14,6 +14,7 @@ from foliant.meta.tools import remove_meta
 class Preprocessor(BasePreprocessor):
     defaults = {
         'recursive': True,
+        'error_message': True,
         'cache_dir': Path('.includescache'),
         'aliases': {},
         'extensions': ['md']
@@ -716,16 +717,25 @@ class Preprocessor(BasePreprocessor):
             f'to heading: {to_heading}, sethead: {sethead}, nohead: {nohead}'
         )
         
+    
         if included_file_path.exists():
             included_file_path = included_file_path
         else:
             self.logger.error(f'The url or repo_url link is not correct, file not found: {included_file_path}')
-            included_file_path=self._cache_dir_path/'error.md'
-            error_file = open(included_file_path, 'w+')
-            error_file.write(f'The url or repo_url link is not correct, file not found')
-            error_file.close()
 
-        
+            path_error_link = Path(self._cache_dir_path/'_error_link').resolve()
+
+            if not Path(path_error_link).exists():
+                Path(path_error_link).mkdir()
+
+            path_error_file = open(path_error_link/included_file_path.name, 'w+')
+
+            if self.options['error_message']:
+                path_error_file.write(f'The url or repo_url link is not correct, file not found: {included_file_path}')
+            path_error_file.close()
+
+            included_file_path=path_error_link/included_file_path.name
+               
 
         with open(included_file_path, encoding='utf8') as included_file:
             included_content = included_file.read()
