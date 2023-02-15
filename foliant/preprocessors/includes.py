@@ -749,7 +749,7 @@ class Preprocessor(BasePreprocessor):
                 old_found_link = regexp_find_link.findall(included_content)
 
                 for line in old_found_link:
-                    exceptions_characters = re.findall(r'http|@|:', line)
+                    exceptions_characters = re.findall(r'https?://[^\s]+|@|:|\.png|\.jpeg', line)
                     if exceptions_characters:
                         continue
                     else:
