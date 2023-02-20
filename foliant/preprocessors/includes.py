@@ -750,7 +750,7 @@ class Preprocessor(BasePreprocessor):
 
                 for line in old_found_link:          
                     relative_path = regexp_find_path.findall(line)
-                    exceptions_characters = re.findall(r'https?://[^\s]+|@|:|\.png|\.jpeg|.svg', line)
+                    exceptions_characters = re.findall(r'https?://[^\s]+|@|:|\.png|\.jpeg|\.svg', line)
                     if exceptions_characters:
                         continue
                     else:

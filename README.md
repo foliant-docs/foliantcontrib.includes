@@ -26,6 +26,7 @@ preprocessors:
     - includes:
         cache_dir: !path .includescache
         recursive: true
+        error_message: true
         extensions:
             - md
             - j2
@@ -42,6 +43,10 @@ preprocessors:
 
 `recursive`
 :   Flag that defines whether includes in included documents should be processed.
+
+`error_message`
+:   The parameter determines whether or not to insert an error message about adding content from the included file into the text of the document.
+It is set to `true` by default.
 
 `extensions`
 :   List of file extensions that defines the types of files which should be processed looking for include statements. Might be useful if you need to include some content from third-party sources into non-Markdown files like configs, templates, reports, etc. Defaults to `[md]`.
