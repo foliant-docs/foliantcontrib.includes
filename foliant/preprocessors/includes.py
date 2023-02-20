@@ -750,17 +750,19 @@ class Preprocessor(BasePreprocessor):
 
                 for line in old_found_link:          
                     relative_path = regexp_find_path.findall(line)
-                    exceptions_characters = re.findall(r'https?://[^\s]+|@|:|\.png|\.jpeg|\.svg', line)
-                    if exceptions_characters:
-                        continue
-                    else:
-                        sub_relative_path = re.findall(r'\[.+?\]', line)
-                        dict_new_link[line] = sub_relative_path[0] + '(' + include_link.rpartition('/')[0].replace(
-                            'raw', 'blob') + '/' + relative_path[0].partition('(')[2]
+                    
+                    for ex_line in relative_path:
+                        exceptions_characters = re.findall(r'https?://[^\s]+|@|:|\.png|\.jpeg|.svg', ex_line)
+                        if exceptions_characters:
+                            continue
+                        else:
+                            sub_relative_path = re.findall(r'\[.+?\]', line)
+                            dict_new_link[line] = sub_relative_path[0] + '(' + include_link.rpartition('/')[0].replace(
+                                'raw', 'blob') + '/' + relative_path[0].partition('(')[2]
 
                 for line in dict_new_link:
                     included_content = included_content.replace(line, dict_new_link[line])
-            # End of the conversion code block             
+            # End of the conversion code block                    
 
             if self.config.get('escape_code', False):
                 if isinstance(self.config['escape_code'], dict):
