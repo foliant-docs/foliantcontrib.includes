@@ -59,7 +59,7 @@ class TestIncludesBasic(TestCase):
             'index.md': '# My title\n\n<include repo_url="https://github.com/foliant-docs/foliantcontrib.includes" revision="master" path="LICENSE"></include>',
         }
         expected_map = {
-             'index.md': f'# My title\n\n{data_file_content("../LICENSE")}',
+            'index.md': f'# My title\n\n{data_file_content("../LICENSE")}',
         }
         self.ptf.test_preprocessor(
             input_mapping=input_map,
@@ -70,8 +70,9 @@ class TestIncludesBasic(TestCase):
         input_map = {
             'index.md': '# My title\n\n<include repo_url="https://github.com/foliant-docs/foliantcontrib.includes" revision="update_includes" path="test/data/from_to/from_test_links.md"></include>',
         }
+        print(input_map['index.md'])
         expected_map = {
-             'index.md': f'# My title\n\n{data_file_content("./data/from_to/to_test_links.md")}',
+            'index.md': f'# My title\n\n{data_file_content("data/from_to/to_test_links.md")}',
         }
         self.ptf.test_preprocessor(
             input_mapping=input_map,

@@ -17,6 +17,7 @@
 ### Links to external resources
 
 [Jenkins CI](http://ci.restr.im/)
+
 [Elasticsearch](https://www.elastic.co/elasticsearch/)
 
 ### Mail
@@ -26,5 +27,7 @@
 ### Links to images
 
 [Image Description.png](images/image.png)
+
 [Image Description.svg](images/image.svg)
+
 [Image Description.jpeg](images/image.jpeg)
