@@ -6,11 +6,11 @@
 
 ### Relative paths
 
-[`autodeploy.sh`](https://github.com/foliant-docs/foliantcontrib.includes/blob/update_includes/test/data/autodeploy.sh)
+[`autodeploy.sh`](https://github.com/foliant-docs/foliantcontrib.includes/tree/update_includes/test/data/autodeploy.sh)
 
-[`jobs/*`](https://github.com/foliant-docs/foliantcontrib.includes/blob/update_includes/test/data/jobs/)
+[`jobs/*`](https://github.com/foliant-docs/foliantcontrib.includes/tree/update_includes/test/data/jobs/)
 
-[`README.md`](https://github.com/foliant-docs/foliantcontrib.includes/blob/update_includes/test/data/README.md)
+[`README.md`](https://github.com/foliant-docs/foliantcontrib.includes/tree/update_includes/test/data/README.md)
 
 ## Not changeable
 
