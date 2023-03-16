@@ -122,7 +122,7 @@ Text below is taken from a remote repository on the default branch.
 >
 > For projects in GitHub, you must specify the full path to the raw file, while not specifying the file extension `.md`.
     
-``` markdown
+```markdown
 <include url="https://github.com/path/to/doc/raw/master/doc" nohead="true"></include>
 ```
 
