@@ -14,7 +14,7 @@ from foliant.meta.tools import remove_meta
 class Preprocessor(BasePreprocessor):
     defaults = {
         'recursive': True,
-        'error_message': True,
+        'stub_text': True,
         'cache_dir': Path('.includescache'),
         'aliases': {},
         'extensions': ['md']
@@ -730,7 +730,7 @@ class Preprocessor(BasePreprocessor):
 
             path_error_file = open(path_error_link/included_file_path.name, 'w+')
 
-            if self.options['error_message']:
+            if self.options['stub_text']:
                 path_error_file.write(f'The url or repo_url link is not correct, file not found: {included_file_path}')
             path_error_file.close()
 
