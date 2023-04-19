@@ -32,10 +32,10 @@ class TestIncludesBasic(TestCase):
     
     def test_url(self):
         input_map = {
-            'index.md': '# My title\n\n<include url="https://github.com/foliant-docs/foliantcontrib.includes/raw/master/LICENSE" nohead="true"></include>',
+            'index.md': '# My title\n\n<include url="https://github.com/foliant-docs/foliantcontrib.includes/raw/master/LICENSE.txt" nohead="true"></include>',
         }
         expected_map = {
-            'index.md': f'# My title\n\n{data_file_content("../LICENSE")}',
+            'index.md': f'# My title\n\n{data_file_content("../LICENSE.txt")}',
         }
         self.ptf.test_preprocessor(
             input_mapping=input_map,
