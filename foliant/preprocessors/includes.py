@@ -121,52 +121,52 @@ class Preprocessor(BasePreprocessor):
         if not downloaded_file_path.exists():
             self.logger.debug('Performing URL request')
             
-            try:
-                response = urllib.request.urlopen(url, timeout=0.05)
-            except (urllib.error.HTTPError, urllib.error.URLError) as error:
-                self.logger.error(f'Data of not retrieved because {error}\nURL: {url}')
-            except socket.timeout:
-                self.logger.error(f'socket timed out - URL {url}')
-            else:
-                charset = 'utf-8'
+            # try:
+            response = urllib.request.urlopen(url)
+        # except (urllib.error.HTTPError, urllib.error.URLError) as error:
+        #     self.logger.error(f'Data of not retrieved because {error}\nURL: {url}')
+        # except socket.timeout:
+        #     self.logger.error(f'socket timed out - URL {url}')
+        # else:
+            charset = 'utf-8'
 
-                if response.headers['Content-Type']:
-                    charset_match = re.search(r'(^|[\s;])charset=(?P<charset>[^\s;]+)', response.headers['Content-Type'])
+            if response.headers['Content-Type']:
+                charset_match = re.search(r'(^|[\s;])charset=(?P<charset>[^\s;]+)', response.headers['Content-Type'])
 
-                    if charset_match:
-                        charset = charset_match.group('charset')
+                if charset_match:
+                    charset = charset_match.group('charset')
 
-                self.logger.debug(f'Detected source charset: {charset}')
+            self.logger.debug(f'Detected source charset: {charset}')
 
-                downloaded_content = response.read().decode(charset)
+            downloaded_content = response.read().decode(charset)
 
-                self._downloaded_dir_path.mkdir(parents=True, exist_ok=True)
+            self._downloaded_dir_path.mkdir(parents=True, exist_ok=True)
 
-                # The beginning of the block codes for converting relative paths to links
-                dict_new_link = {}
-                regexp_find_link = re.compile('\[.+?\]\(.+?\)')
-                regexp_find_path = re.compile('\(.+?\)')
+            # The beginning of the block codes for converting relative paths to links
+            dict_new_link = {}
+            regexp_find_link = re.compile('\[.+?\]\(.+?\)')
+            regexp_find_path = re.compile('\(.+?\)')
 
-                old_found_link = regexp_find_link.findall(downloaded_content)
+            old_found_link = regexp_find_link.findall(downloaded_content)
 
-                for line in old_found_link:
-                    exceptions_characters = re.findall(r'http|@|:', line)
-                    if exceptions_characters:
-                        continue
-                    else:
-                        relative_path = regexp_find_path.findall(line)
-                        sub_relative_path = re.findall(r'\[.+?\]', line)
-                        dict_new_link[line] = sub_relative_path[0] + '(' + url.rpartition('/')[0].replace('raw',
-                                                                                                        'blob') + '/' + \
-                                            relative_path[0].partition('(')[2]
+            for line in old_found_link:
+                exceptions_characters = re.findall(r'http|@|:', line)
+                if exceptions_characters:
+                    continue
+                else:
+                    relative_path = regexp_find_path.findall(line)
+                    sub_relative_path = re.findall(r'\[.+?\]', line)
+                    dict_new_link[line] = sub_relative_path[0] + '(' + url.rpartition('/')[0].replace('raw',
+                                                                                                    'blob') + '/' + \
+                                        relative_path[0].partition('(')[2]
 
-                for line in dict_new_link:
-                    downloaded_content = downloaded_content.replace(line, dict_new_link[line])
-                # End of the conversion code block         
+            for line in dict_new_link:
+                downloaded_content = downloaded_content.replace(line, dict_new_link[line])
+            # End of the conversion code block         
 
-                with open(downloaded_file_path, 'w', encoding='utf8') as downloaded_file:
+            with open(downloaded_file_path, 'w', encoding='utf8') as downloaded_file:
 
-                    downloaded_file.write(downloaded_content)
+                downloaded_file.write(downloaded_content)
 
         else:
             self.logger.debug('File found in cache, it was already downloaded at this run')
