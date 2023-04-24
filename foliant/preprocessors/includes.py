@@ -122,7 +122,7 @@ class Preprocessor(BasePreprocessor):
             self.logger.debug('Performing URL request')
             
             try:
-                response = urllib.request.urlopen(url, timeout=0.05)
+                response = urllib.request.urlopen(url, timeout=2)
             except (urllib.error.HTTPError, urllib.error.URLError) as error:
                 self.logger.error(f'Data of not retrieved because {error}\nURL: {url}')
             except socket.timeout:
