@@ -120,7 +120,6 @@ class Preprocessor(BasePreprocessor):
 
         if not downloaded_file_path.exists():
             self.logger.debug('Performing URL request')
-            
             try:
                 response = urllib.request.urlopen(url, timeout=2)
             except (urllib.error.HTTPError, urllib.error.URLError) as error:
@@ -167,7 +166,6 @@ class Preprocessor(BasePreprocessor):
                 with open(downloaded_file_path, 'w', encoding='utf8') as downloaded_file:
 
                     downloaded_file.write(downloaded_content)
-
         else:
             self.logger.debug('File found in cache, it was already downloaded at this run')
 
