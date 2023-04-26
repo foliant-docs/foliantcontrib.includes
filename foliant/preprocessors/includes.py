@@ -17,6 +17,7 @@ class Preprocessor(BasePreprocessor):
     defaults = {
         'recursive': True,
         'stub_text': True,
+        'allow_failure': True,
         'cache_dir': Path('.includescache'),
         'aliases': {},
         'extensions': ['md']
@@ -727,21 +728,23 @@ class Preprocessor(BasePreprocessor):
         if included_file_path.exists():
             included_file_path = included_file_path
         else:
-            self.logger.error(f'The url or repo_url link is not correct, file not found: {included_file_path}')
+            if self.options['allow_failure']:
+                self.logger.error(f'The url or repo_url link is not correct, file not found: {included_file_path}')
 
-            path_error_link = Path(self._cache_dir_path/'_error_link').resolve()
+                path_error_link = Path(self._cache_dir_path/'_error_link').resolve()
 
-            if not Path(path_error_link).exists():
-                Path(path_error_link).mkdir()
+                if not Path(path_error_link).exists():
+                    Path(path_error_link).mkdir()
 
-            path_error_file = open(path_error_link/included_file_path.name, 'w+')
+                path_error_file = open(path_error_link/included_file_path.name, 'w+')
 
-            if self.options['stub_text']:
-                path_error_file.write(f'The url or repo_url link is not correct, file not found: {included_file_path}')
-            path_error_file.close()
+                if self.options['stub_text']:
+                    path_error_file.write(f'The url or repo_url link is not correct, file not found: {included_file_path}')
+                path_error_file.close()
 
-            included_file_path=path_error_link/included_file_path.name
-               
+                included_file_path=path_error_link/included_file_path.name
+            else:
+                self.logger.error(f'The url or repo_url link is not correct, file not found: {included_file_path}')   
 
         with open(included_file_path, encoding='utf8') as included_file:
             included_content = included_file.read()

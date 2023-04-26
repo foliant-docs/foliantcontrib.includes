@@ -44,6 +44,14 @@ preprocessors:
 `recursive`
 :   Flag that defines whether includes in included documents should be processed.
 
+`stub_text`
+:   Flag that defines whether or not to insert an error message about adding content from the included file into the text of the document.
+Default `true`.
+
+`allow_failure`
+:   Flag that defines, that you need to explicitly call warnings instead of errors.
+Default `true`.
+
 `error_message`
 :   The parameter determines whether or not to insert an error message about adding content from the included file into the text of the document.
 It is set to `true` by default.
