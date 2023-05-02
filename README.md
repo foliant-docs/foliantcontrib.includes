@@ -26,7 +26,7 @@ preprocessors:
     - includes:
         cache_dir: !path .includescache
         recursive: true
-        error_message: true
+        stub_text: true
         extensions:
             - md
             - j2
@@ -45,19 +45,17 @@ preprocessors:
 :   Flag that defines whether includes in included documents should be processed.
 
 `stub_text`
-:   Flag that defines whether or not to insert an error message about adding content from the included file into the text of the document.
+:   Flag that defines whether to insert an error message about adding content from the included file into the text of the document.
 Default `true`.
 
 `allow_failure`
-:   Flag that defines, that you need to explicitly call warnings instead of errors.
+:   Flag that defines whether to raise warnings instead of errors.
 Default `true`.
 
-`error_message`
-:   The parameter determines whether or not to insert an error message about adding content from the included file into the text of the document.
-It is set to `true` by default.
-
 `extensions`
-:   List of file extensions that defines the types of files which should be processed looking for include statements. Might be useful if you need to include some content from third-party sources into non-Markdown files like configs, templates, reports, etc. Defaults to `[md]`.
+:   List of file extensions that defines the types of files which should be processed looking for include statements.
+    Might be useful if you need to include some content from third-party sources into non-Markdown files like configs, templates, reports, etc.
+    Defaults to `[md]`.
 
 `aliases`
 :   Mapping from aliases to Git repository URLs. Once defined here, an alias can be used to refer to the repository instead of its full URL.
@@ -87,11 +85,13 @@ The preprocessor allows two syntax variants for include statements.
 
 The **legacy** syntax is simpler and shorter but less flexible. There are no plans to extend it.
 
-The **new** syntax introduced in version 1.1.0 is stricter and more flexible. It is more suitable for complex cases, and it can be easily extended in the future. This is the preferred syntax.
+The **new** syntax introduced in version 1.1.0 is stricter and more flexible.
+It is more suitable for complex cases, and it can be easily extended in the future. This is the preferred syntax.
 
 Both variants of syntax use the `<include>...</include>` tags.
 
-If the included file is specified between the tags, it’s the legacy syntax. If the file is referenced in the tag attributes (`src`, `repo_url`, `path`), it’s the new one.
+If the included file is specified between the tags, it’s the legacy syntax.
+If the file is referenced in the tag attributes (`src`, `repo_url`, `path`), it’s the new one.
 
 ### The New Syntax
 
@@ -190,15 +190,19 @@ wrap_code="triple_backticks" code_language="yaml">
 :   Full content of the ending heading when it’s necessary to include some part of the referenced file content. *The referenced heading will not be included.*
 
 `from_id`
-:   ID of the starting heading or starting anchor when it’s necessary to include some part of the referenced file content. The `from_id` attribute has higher priority than `from_heading`. If the `to_heading`, `to_id`, or `to_end` attribute is not specified, the preprocessor cuts the included content to the next heading of the same level. *The referenced id is included.*
+:   ID of the starting heading or starting anchor when it’s necessary to include some part of the referenced file content.
+    The `from_id` attribute has higher priority than `from_heading`. If the `to_heading`, `to_id`, or `to_end` attribute is not specified, the preprocessor cuts the included content to the next heading of the same level.
+    *The referenced id is included.*
 
 > **NOTE:** If you want `from_id` and `to_id` features to work with [anchors](https://foliant-docs.github.io/docs/preprocessors/anchors/), make sure that anchors preprocessor is listed *after* includes in foliant.yml.
 
 `to_id`
-:   ID of the ending heading or ending anchor when it’s necessary to include some part of the referenced file content. The `to_id` attribute has higher priority than `to_heading`. *The referenced id will not be included.*
+:   ID of the ending heading or ending anchor when it’s necessary to include some part of the referenced file content.
+    The `to_id` attribute has higher priority than `to_heading`. *The referenced id will not be included.*
 
 `to_end`
-:   Flag that tells the preprocessor to cut to the end of the included content. Otherwise, if `from_heading` or `from_id` is specified, the preprocessor cuts the included content to the next heading of the same level as the starting heading, or the heading that precedes the starting anchor.
+:   Flag that tells the preprocessor to cut to the end of the included content. 
+    Otherwise, if `from_heading` or `from_id` is specified, the preprocessor cuts the included content to the next heading of the same level as the starting heading, or the heading that precedes the starting anchor.
 
     Example:
 
@@ -209,10 +213,15 @@ wrap_code="triple_backticks" code_language="yaml">
     Here `Some Heading {#custom_id}` is the full content of the heading, `custom_id` is its ID, and `one_more_custom_id` is the ID of the anchor.
 
 `wrap_code`
-:   Attribute that allows to mark up the included content as fence code block or inline code by wrapping the content with additional Markdown syntax constructions. Available values are: `triple_backticks`—to add triple backticks separated with newlines before and after the included content; `triple_tildas`—to do the same but using triple tildas; `single_backticks`—to add single backticks before and after the included content without adding extra newlines. Note that this attribute doesn’t affect the included content. So if the content consists of multiple lines, and the `wrap_code` attribute with the value `single_backticks` is set, all newlines within the content will be kept. To perform forced conversion of multiple lines into one, use the `inline` attribute.
+:   Attribute that allows to mark up the included content as fence code block or inline code by wrapping the content with additional Markdown syntax constructions.
+    Available values are: `triple_backticks`—to add triple backticks separated with newlines before and after the included content; `triple_tildas`—to do the same but using triple tildas; `single_backticks`—to add single backticks before and after the included content without adding extra newlines.
+    Note that this attribute doesn’t affect the included content. So if the content consists of multiple lines, and the `wrap_code` attribute with the value `single_backticks` is set, all newlines within the content will be kept.
+    To perform forced conversion of multiple lines into one, use the `inline` attribute.
 
 `code_language`
-:   Language of the included code snippet that should be additionally marked up as fence code block by using the `wrap_code` attribute with the value `triple_backticks` or `triple_tildas`. Note that the `code_language` attribute doesn’t take effect to inline code that is obtained when the `single_backticks` value is used. The value of this attribute should be a string without whitespace characters, usually in lowercase; examples: `python`, `bash`, `json`.
+:   Language of the included code snippet that should be additionally marked up as fence code block by using the `wrap_code` attribute with the value `triple_backticks` or `triple_tildas`.
+    Note that the `code_language` attribute doesn’t take effect to inline code that is obtained when the `single_backticks` value is used.
+    The value of this attribute should be a string without whitespace characters, usually in lowercase; examples: `python`, `bash`, `json`.
 
 ### Optional Attributes Supported in Both Syntax Variants
 
@@ -237,7 +246,8 @@ wrap_code="triple_backticks" code_language="yaml">
     By default, the starting heading is included to the output, and the ending heading is not. Starting and ending anchors are never included into the output.
 
 `inline`
-:   Flag that tells the preprocessor to replace sequences of whitespace characters of many kinds (including `\r`, `\n`, and `\t`) with single spaces (` `) in the included content, and then to strip leading and trailing spaces. It may be useful in single-line table cells. Default value is `false`.
+:   Flag that tells the preprocessor to replace sequences of whitespace characters of many kinds (including `\r`, `\n`, and `\t`) with single spaces (` `) in the included content, and then to strip leading and trailing spaces.
+    It may be useful in single-line table cells. Default value is `false`.
 
 `project_root`
 :   Path to the top-level (“root”) directory of Foliant project that the included file belongs to. This option may be needed to resolve the `!path` and `!project_path` modifiers in the included content properly.
@@ -256,9 +266,12 @@ Different options can be combined. For example, use both `sethead` and `nohead` 
 
 ### The Legacy Syntax
 
-This syntax was the only supported in the preprocessor up to version 1.0.11. It’s weird and cryptic, you had to memorize strange rules about `$`, `#` and stuff. The new syntax described above is much cleaner.
+This syntax was the only supported in the preprocessor up to version 1.0.11.
+It’s weird and cryptic, you had to memorize strange rules about `$`, `#` and stuff.
+The new syntax described above is much cleaner.
 
-The legacy syntax is kept for backward compatibility. To use it, put the reference to the included file between `<include>...</include>` tags.
+The legacy syntax is kept for backward compatibility.
+To use it, put the reference to the included file between `<include>...</include>` tags.
 
 Local path example:
 
