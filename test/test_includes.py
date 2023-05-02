@@ -32,10 +32,10 @@ class TestIncludesBasic(TestCase):
     
     def test_url(self):
         input_map = {
-            'index.md': '# My title\n\n<include url="https://github.com/foliant-docs/foliantcontrib.includes/raw/master/LICENSE" nohead="true"></include>',
+            'index.md': '# My title\n\n<include url="https://github.com/foliant-docs/foliantcontrib.includes/raw/master/test/data/from_to/from_anchor.md" nohead="true"></include>',
         }
         expected_map = {
-            'index.md': f'# My title\n\n{data_file_content("../LICENSE")}',
+            'index.md': f'# My title\n\n{data_file_content("data/from_to/from_anchor.md")}',
         }
         self.ptf.test_preprocessor(
             input_mapping=input_map,
@@ -59,7 +59,19 @@ class TestIncludesBasic(TestCase):
             'index.md': '# My title\n\n<include repo_url="https://github.com/foliant-docs/foliantcontrib.includes" revision="master" path="LICENSE"></include>',
         }
         expected_map = {
-             'index.md': f'# My title\n\n{data_file_content("../LICENSE")}',
+            'index.md': f'# My title\n\n{data_file_content("../LICENSE")}',
+        }
+        self.ptf.test_preprocessor(
+            input_mapping=input_map,
+            expected_mapping=expected_map,
+        )
+
+    def test_include_internal_links(self):
+        input_map = {
+            'index.md': '# My title\n\n<include repo_url="https://github.com/foliant-docs/foliantcontrib.includes" revision="master" path="test/data/from_to/from_test_links.md"></include>',
+        }
+        expected_map = {
+            'index.md': f'# My title\n\n{data_file_content("data/from_to/to_test_links.md")}',
         }
         self.ptf.test_preprocessor(
             input_mapping=input_map,

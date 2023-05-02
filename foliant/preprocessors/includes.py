@@ -4,7 +4,9 @@ from shutil import rmtree
 from io import StringIO
 from hashlib import md5
 from pathlib import Path
+import socket
 from subprocess import run, CalledProcessError, PIPE, STDOUT
+
 
 from foliant.preprocessors.base import BasePreprocessor
 from foliant.preprocessors import escapecode
@@ -14,6 +16,8 @@ from foliant.meta.tools import remove_meta
 class Preprocessor(BasePreprocessor):
     defaults = {
         'recursive': True,
+        'stub_text': True,
+        'allow_failure': True,
         'cache_dir': Path('.includescache'),
         'aliases': {},
         'extensions': ['md']
@@ -117,48 +121,52 @@ class Preprocessor(BasePreprocessor):
 
         if not downloaded_file_path.exists():
             self.logger.debug('Performing URL request')
+            try:
+                response = urllib.request.urlopen(url, timeout=2)
+            except (urllib.error.HTTPError, urllib.error.URLError) as error:
+                self.logger.error(f'Data is not retrieved with {error}\nURL: {url}')
+            except socket.timeout:
+                self.logger.error(f'socket timed out - URL {url}')
+            else:
+                charset = 'utf-8'
 
-            response = urllib.request.urlopen(url)
-            charset = 'utf-8'
+                if response.headers['Content-Type']:
+                    charset_match = re.search(r'(^|[\s;])charset=(?P<charset>[^\s;]+)', response.headers['Content-Type'])
 
-            if response.headers['Content-Type']:
-                charset_match = re.search(r'(^|[\s;])charset=(?P<charset>[^\s;]+)', response.headers['Content-Type'])
+                    if charset_match:
+                        charset = charset_match.group('charset')
 
-                if charset_match:
-                    charset = charset_match.group('charset')
+                self.logger.debug(f'Detected source charset: {charset}')
 
-            self.logger.debug(f'Detected source charset: {charset}')
+                downloaded_content = response.read().decode(charset)
 
-            downloaded_content = response.read().decode(charset)
+                self._downloaded_dir_path.mkdir(parents=True, exist_ok=True)
 
-            self._downloaded_dir_path.mkdir(parents=True, exist_ok=True)
+                # The beginning of the block codes for converting relative paths to links
+                dict_new_link = {}
+                regexp_find_link = re.compile('\[.+?\]\(.+?\)')
+                regexp_find_path = re.compile('\(.+?\)')
 
-            # The beginning of the block codes for converting relative paths to links
-            dict_new_link = {}
-            regexp_find_link = re.compile('\[.+?\]\(.+?\)')
-            regexp_find_path = re.compile('\(.+?\)')
+                old_found_link = regexp_find_link.findall(downloaded_content)
 
-            old_found_link = regexp_find_link.findall(downloaded_content)
+                for line in old_found_link:
+                    exceptions_characters = re.findall(r'http|@|:', line)
+                    if exceptions_characters:
+                        continue
+                    else:
+                        relative_path = regexp_find_path.findall(line)
+                        sub_relative_path = re.findall(r'\[.+?\]', line)
+                        dict_new_link[line] = sub_relative_path[0] + '(' + url.rpartition('/')[0].replace('raw',
+                                                                                                        'blob') + '/' + \
+                                            relative_path[0].partition('(')[2]
 
-            for line in old_found_link:
-                exceptions_characters = re.findall(r'http|@|:', line)
-                if exceptions_characters:
-                    continue
-                else:
-                    relative_path = regexp_find_path.findall(line)
-                    sub_relative_path = re.findall(r'\[.+?\]', line)
-                    dict_new_link[line] = sub_relative_path[0] + '(' + url.rpartition('/')[0].replace('raw',
-                                                                                                      'blob') + '/' + \
-                                          relative_path[0].partition('(')[2]
+                for line in dict_new_link:
+                    downloaded_content = downloaded_content.replace(line, dict_new_link[line])
+                # End of the conversion code block         
 
-            for line in dict_new_link:
-                downloaded_content = downloaded_content.replace(line, dict_new_link[line])
-            # End of the conversion code block         
+                with open(downloaded_file_path, 'w', encoding='utf8') as downloaded_file:
 
-            with open(downloaded_file_path, 'w', encoding='utf8') as downloaded_file:
-
-                downloaded_file.write(downloaded_content)
-
+                    downloaded_file.write(downloaded_content)
         else:
             self.logger.debug('File found in cache, it was already downloaded at this run')
 
@@ -651,6 +659,7 @@ class Preprocessor(BasePreprocessor):
 
         included_file_path = (current_processed_file_path.parent / user_specified_path).resolve()
 
+
         self.logger.debug(f'User-specified included file path: {included_file_path}')
 
         if (
@@ -675,7 +684,7 @@ class Preprocessor(BasePreprocessor):
             )
 
         self.logger.debug(f'Finally, included file path: {included_file_path}')
-
+        
         return included_file_path
 
     def _process_include(
@@ -714,6 +723,28 @@ class Preprocessor(BasePreprocessor):
             f'Included file path: {included_file_path}, from heading: {from_heading}, ' +
             f'to heading: {to_heading}, sethead: {sethead}, nohead: {nohead}'
         )
+        
+    
+        if included_file_path.exists():
+            included_file_path = included_file_path
+        else:
+            if self.options['allow_failure']:
+                self.logger.error(f'The url or repo_url link is not correct, file not found: {included_file_path}')
+
+                path_error_link = Path(self._cache_dir_path/'_error_link').resolve()
+
+                if not Path(path_error_link).exists():
+                    Path(path_error_link).mkdir()
+
+                path_error_file = open(path_error_link/included_file_path.name, 'w+')
+
+                if self.options['stub_text']:
+                    path_error_file.write(f'The url or repo_url link is not correct, file not found: {included_file_path}')
+                path_error_file.close()
+
+                included_file_path=path_error_link/included_file_path.name
+            else:
+                self.logger.error(f'The url or repo_url link is not correct, file not found: {included_file_path}')   
 
         with open(included_file_path, encoding='utf8') as included_file:
             included_content = included_file.read()
@@ -726,19 +757,21 @@ class Preprocessor(BasePreprocessor):
 
                 old_found_link = regexp_find_link.findall(included_content)
 
-                for line in old_found_link:
-                    exceptions_characters = re.findall(r'http|@|:', line)
-                    if exceptions_characters:
-                        continue
-                    else:
-                        relative_path = regexp_find_path.findall(line)
-                        sub_relative_path = re.findall(r'\[.+?\]', line)
-                        dict_new_link[line] = sub_relative_path[0] + '(' + include_link.rpartition('/')[0].replace(
-                            'raw', 'blob') + '/' + relative_path[0].partition('(')[2]
+                for line in old_found_link:          
+                    relative_path = regexp_find_path.findall(line)
+                    
+                    for ex_line in relative_path:
+                        exceptions_characters = re.findall(r'https?://[^\s]+|@|:|\.png|\.jpeg|.svg', ex_line)
+                        if exceptions_characters:
+                            continue
+                        else:
+                            sub_relative_path = re.findall(r'\[.+?\]', line)
+                            dict_new_link[line] = sub_relative_path[0] + '(' + include_link.rpartition('/')[0].replace(
+                                'raw', 'blob') + '/' + relative_path[0].partition('(')[2]
 
                 for line in dict_new_link:
                     included_content = included_content.replace(line, dict_new_link[line])
-            # End of the conversion code block         
+            # End of the conversion code block                    
 
             if self.config.get('escape_code', False):
                 if isinstance(self.config['escape_code'], dict):
@@ -1146,6 +1179,7 @@ class Preprocessor(BasePreprocessor):
         return source_files_extensions
 
     def apply(self):
+       
         self.logger.info('Applying preprocessor')
 
         # Cleaning up downloads because the content of remote source may have modified
