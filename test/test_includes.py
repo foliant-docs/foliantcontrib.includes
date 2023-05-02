@@ -68,7 +68,7 @@ class TestIncludesBasic(TestCase):
 
     def test_include_internal_links(self):
         input_map = {
-            'index.md': '# My title\n\n<include repo_url="https://github.com/foliant-docs/foliantcontrib.includes" revision="update_includes" path="test/data/from_to/from_test_links.md"></include>',
+            'index.md': '# My title\n\n<include repo_url="https://github.com/foliant-docs/foliantcontrib.includes" revision="master" path="test/data/from_to/from_test_links.md"></include>',
         }
         expected_map = {
             'index.md': f'# My title\n\n{data_file_content("data/from_to/to_test_links.md")}',

@@ -16,13 +16,13 @@
 
 ### Links to external resources
 
-[Jenkins CI](http://ci.restr.im/)
+[Jenkins CI](http://ci.foliant.com/)
 
 [Elasticsearch](https://www.elastic.co/elasticsearch/)
 
 ### Mail
 
-[docs-build-reports@restream.rt.ru](mailto:docs-build-reports@restream.rt.ru)
+[docs-build-reports@foliant.com](mailto:docs-build-reports@foliant.com)
 
 ### Links to images
 
