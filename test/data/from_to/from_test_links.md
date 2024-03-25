@@ -1,6 +1,6 @@
 # Types of possible links
 
-[Using for test url](https://github.com/foliant-docs/foliantcontrib.includes/blob/update_includes/test/data/from_to/from_test_links.md)
+[Using for test url](https://github.com/foliant-docs/foliantcontrib.includes/blob/master/test/data/from_to/from_test_links.md)
 
 ## Changeable
 

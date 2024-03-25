@@ -1,7 +1,10 @@
+# 1.1.16
+
+- Feat: added 'allow_failure' and 'stub_text` options
+
 # 1.1.15
 
 - Feat: recursive link processing for _url_ and _repo_url_
-
 
 # 1.1.14
 
