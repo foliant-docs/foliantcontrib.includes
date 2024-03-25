@@ -731,7 +731,7 @@ class Preprocessor(BasePreprocessor):
             if self.options['allow_failure']:
                 self.logger.error(f'The url or repo_url link is not correct, file not found: {included_file_path}')
 
-                path_error_link = Path(self._cache_dir_path/'_error_link').resolve()
+                path_error_link = Path(self.project_path/'.error_link').resolve()
 
                 if not Path(path_error_link).exists():
                     Path(path_error_link).mkdir()
