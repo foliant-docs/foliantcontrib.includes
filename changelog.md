@@ -1,4 +1,4 @@
-# 1.1.16
+# 1.1.17
 
 - Fix: fixed a link processing error for files with diagrams
 
