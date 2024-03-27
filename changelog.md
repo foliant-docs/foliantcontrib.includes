@@ -1,3 +1,7 @@
+# 1.1.17
+
+- Fix: fixed a link processing error for files with diagrams
+
 # 1.1.16
 
 - Feat: added 'allow_failure' and 'stub_text` options
