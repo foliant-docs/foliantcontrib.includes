@@ -990,8 +990,8 @@ class Preprocessor(BasePreprocessor):
                     else:
                         self.logger.debug('Local file referenced')
 
-                        donor_md_path = f"{self.src_dir}/{markdown_file_path.relative_to(os.getcwd()).relative_to(self.working_dir).as_posix()}"
                         included_file_path = self._get_included_file_path(body.group('path'), markdown_file_path)
+                        donor_md_path = f"{self.src_dir}/{included_file_path.relative_to(os.getcwd()).relative_to(self.working_dir).as_posix()}"
 
                         if included_file_path.name.startswith('^'):
                             included_file_path = self._find_file(
