@@ -854,7 +854,7 @@ class Preprocessor(BasePreprocessor):
         :returns: Markdown content with resolved includes
         '''
 
-        recipient_md_path = markdown_file_path.relative_to(self.working_dir).as_posix()
+        recipient_md_path = f'{self.src_dir}/{markdown_file_path.relative_to(self.working_dir).as_posix()}'
         markdown_file_path = markdown_file_path.resolve()
 
         self.logger.debug(f'Processing Markdown file: {markdown_file_path}')
@@ -1175,7 +1175,7 @@ class Preprocessor(BasePreprocessor):
                     if self.includes_map.get(recipient_md_path) == None :
                         self.includes_map[recipient_md_path] = []
 
-                    self.includes_map[recipient_md_path].append({"path": donor_md_path})
+                    self.includes_map[recipient_md_path].append(donor_md_path)
 
             else:
                 processed_content_part = content_part
@@ -1224,6 +1224,7 @@ class Preprocessor(BasePreprocessor):
             for source_file_path in self.working_dir.rglob(source_files_extension):
                 with open(source_file_path, encoding='utf8') as source_file:
                     source_content = source_file.read()
+
                 processed_content = self.process_includes(
                     source_file_path,
                     source_content,
