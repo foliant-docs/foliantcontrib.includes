@@ -855,6 +855,7 @@ class Preprocessor(BasePreprocessor):
         '''
 
         recipient_md_path = f'{self.src_dir}/{markdown_file_path.relative_to(self.working_dir).as_posix()}'
+
         markdown_file_path = markdown_file_path.resolve()
 
         self.logger.debug(f'Processing Markdown file: {markdown_file_path}')
@@ -964,6 +965,8 @@ class Preprocessor(BasePreprocessor):
                         included_file_path = repo_path / body.group('path')
                         
                         donor_md_path = included_file_path.as_posix()
+                        
+                        self.logger.debug(f'Set the repo URL of the included file to {recipient_md_path}: {donor_md_path}')
 
                         if included_file_path.name.startswith('^'):
                             included_file_path = self._find_file(
@@ -991,7 +994,6 @@ class Preprocessor(BasePreprocessor):
                         self.logger.debug('Local file referenced')
 
                         included_file_path = self._get_included_file_path(body.group('path'), markdown_file_path)
-                        donor_md_path = f"{self.src_dir}/{included_file_path.relative_to(os.getcwd()).relative_to(self.working_dir).as_posix()}"
 
                         if included_file_path.name.startswith('^'):
                             included_file_path = self._find_file(
@@ -1015,6 +1017,10 @@ class Preprocessor(BasePreprocessor):
                             sethead=current_sethead,
                             nohead=options.get('nohead')
                         )
+
+                        donor_md_path = f"{self.src_dir}/{included_file_path.relative_to(os.getcwd()).relative_to(self.working_dir).as_posix()}"
+                        
+                        self.logger.debug(f'Set the path of the included file to {recipient_md_path}: {donor_md_path}')
 
                 else:  # if body is missing
                     self.logger.debug('Using the new syntax rules')
@@ -1053,6 +1059,8 @@ class Preprocessor(BasePreprocessor):
                         )
 
                         donor_md_path = include_link
+                        
+                        self.logger.debug(f'Set the link of the included file to {recipient_md_path}: {donor_md_path}')
 
                     elif options.get('url'):
                         self.logger.debug('File to get by URL referenced')
@@ -1081,6 +1089,8 @@ class Preprocessor(BasePreprocessor):
                         )
                         
                         donor_md_path = options['url']
+                        
+                        self.logger.debug(f'Set the URL of the included file to {recipient_md_path}: {donor_md_path}')
 
                     elif options.get('src'):
                         self.logger.debug('Local file referenced')
@@ -1094,6 +1104,8 @@ class Preprocessor(BasePreprocessor):
                                 donor_md_path = f"{self.src_dir}/{_path.relative_to(self.working_dir).as_posix()}"
                             else:
                                 donor_md_path = _path.as_posix()
+                                
+                        self.logger.debug(f'Set the path of the included file to {recipient_md_path}: {donor_md_path}')
 
                         if options.get('project_root'):
                             current_project_root_path = (
