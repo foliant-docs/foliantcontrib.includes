@@ -1,5 +1,7 @@
 import re
 import urllib
+import json
+import os
 from shutil import rmtree
 from io import StringIO
 from hashlib import md5
@@ -43,6 +45,8 @@ class Preprocessor(BasePreprocessor):
 
         self._cache_dir_path = self.project_path / self.options['cache_dir']
         self._downloaded_dir_path = self._cache_dir_path / '_downloaded_content'
+        self.src_dir = self.config.get("src_dir")
+        self.includes_map = {}
 
         self.logger = self.logger.getChild('includes')
 
@@ -850,6 +854,7 @@ class Preprocessor(BasePreprocessor):
         :returns: Markdown content with resolved includes
         '''
 
+        recipient_md_path = markdown_file_path.relative_to(self.working_dir).as_posix()
         markdown_file_path = markdown_file_path.resolve()
 
         self.logger.debug(f'Processing Markdown file: {markdown_file_path}')
@@ -867,10 +872,18 @@ class Preprocessor(BasePreprocessor):
             include_statement = self.pattern.fullmatch(content_part)
 
             if include_statement:
+                donor_md_path = None
+
                 current_project_root_path = project_root_path
 
                 body = self._tag_body_pattern.match(include_statement.group('body').strip())
                 options = self.get_options(include_statement.group('options'))
+
+                self.logger.debug(f'Include pair: {markdown_file_path} <- {options} {body}')
+                
+                # TODO: 
+                # :param markdown_file_path:
+                # :returns date:
 
                 self.logger.debug(
                     f'Processing include statement; body: {body}, options: {options}, ' +
@@ -949,6 +962,8 @@ class Preprocessor(BasePreprocessor):
                         self.logger.debug(f'Local path of the repo: {repo_path}')
 
                         included_file_path = repo_path / body.group('path')
+                        
+                        donor_md_path = included_file_path.as_posix() + "1"
 
                         if included_file_path.name.startswith('^'):
                             included_file_path = self._find_file(
@@ -975,6 +990,7 @@ class Preprocessor(BasePreprocessor):
                     else:
                         self.logger.debug('Local file referenced')
 
+                        donor_md_path = f"{self.src_dir}/{markdown_file_path.relative_to(os.getcwd()).relative_to(self.working_dir).as_posix()}"  + "2"
                         included_file_path = self._get_included_file_path(body.group('path'), markdown_file_path)
 
                         if included_file_path.name.startswith('^'):
@@ -1000,7 +1016,7 @@ class Preprocessor(BasePreprocessor):
                             nohead=options.get('nohead')
                         )
 
-                else:  # if body
+                else:  # if body missed
                     self.logger.debug('Using the new syntax rules')
 
                     if options.get('repo_url') and options.get('path'):
@@ -1036,6 +1052,8 @@ class Preprocessor(BasePreprocessor):
                             include_link=include_link
                         )
 
+                        donor_md_path = include_link  + "3"
+
                     elif options.get('url'):
                         self.logger.debug('File to get by URL referenced')
 
@@ -1061,13 +1079,22 @@ class Preprocessor(BasePreprocessor):
                             sethead=current_sethead,
                             nohead=options.get('nohead')
                         )
+                        
+                        donor_md_path = options['url']  + "4"
 
                     elif options.get('src'):
                         self.logger.debug('Local file referenced')
 
+                        # donor_md_path = f"{self.src_dir}/{markdown_file_path.relative_to(os.getcwd()).relative_to(self.working_dir).as_posix()}"  + "5"
                         included_file_path = self._get_included_file_path(options.get('src'), markdown_file_path)
-
                         self.logger.debug(f'Resolved path to the included file: {included_file_path}')
+                        
+                        if included_file_path.as_posix().startswith(os.getcwd()):
+                            _path = included_file_path.relative_to(os.getcwd())
+                            if _path.as_posix().startswith(self.working_dir.as_posix()):
+                                donor_md_path = f"{self.src_dir}/{_path.relative_to(self.working_dir).as_posix()}" + "5"
+                            else:
+                                donor_md_path = _path.as_posix() + "6"
 
                         if options.get('project_root'):
                             current_project_root_path = (
@@ -1087,6 +1114,7 @@ class Preprocessor(BasePreprocessor):
                             sethead=current_sethead,
                             nohead=options.get('nohead')
                         )
+
                     else:
                         self.logger.warning(
                             'Neither repo_url+path nor src specified, ignoring the include statement'
@@ -1144,6 +1172,12 @@ class Preprocessor(BasePreprocessor):
 
                     processed_content_part = re.sub(r'\s+', ' ', processed_content_part).strip()
 
+                if donor_md_path:
+                    if self.includes_map.get(recipient_md_path) == None :
+                        self.includes_map[recipient_md_path] = []
+
+                    self.includes_map[recipient_md_path].append({"path": donor_md_path})
+
             else:
                 processed_content_part = content_part
 
@@ -1191,7 +1225,6 @@ class Preprocessor(BasePreprocessor):
             for source_file_path in self.working_dir.rglob(source_files_extension):
                 with open(source_file_path, encoding='utf8') as source_file:
                     source_content = source_file.read()
-
                 processed_content = self.process_includes(
                     source_file_path,
                     source_content,
@@ -1201,5 +1234,10 @@ class Preprocessor(BasePreprocessor):
                 if processed_content:
                     with open(source_file_path, 'w', encoding='utf8') as processed_file:
                         processed_file.write(processed_content)
+                        
+        # Write includes map
+        Path(f'{self.working_dir}/static/').mkdir(parents=True, exist_ok=True)
+        with open(f'{self.working_dir}/static/includes_map.json', 'w', encoding='utf8') as f:
+            json.dump(self.includes_map, f)
 
         self.logger.info('Preprocessor applied')
