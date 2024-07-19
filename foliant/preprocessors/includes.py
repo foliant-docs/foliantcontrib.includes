@@ -963,7 +963,7 @@ class Preprocessor(BasePreprocessor):
 
                         included_file_path = repo_path / body.group('path')
                         
-                        donor_md_path = included_file_path.as_posix() + "1"
+                        donor_md_path = included_file_path.as_posix()
 
                         if included_file_path.name.startswith('^'):
                             included_file_path = self._find_file(
@@ -990,7 +990,7 @@ class Preprocessor(BasePreprocessor):
                     else:
                         self.logger.debug('Local file referenced')
 
-                        donor_md_path = f"{self.src_dir}/{markdown_file_path.relative_to(os.getcwd()).relative_to(self.working_dir).as_posix()}"  + "2"
+                        donor_md_path = f"{self.src_dir}/{markdown_file_path.relative_to(os.getcwd()).relative_to(self.working_dir).as_posix()}"
                         included_file_path = self._get_included_file_path(body.group('path'), markdown_file_path)
 
                         if included_file_path.name.startswith('^'):
@@ -1016,7 +1016,7 @@ class Preprocessor(BasePreprocessor):
                             nohead=options.get('nohead')
                         )
 
-                else:  # if body missed
+                else:  # if body is missing
                     self.logger.debug('Using the new syntax rules')
 
                     if options.get('repo_url') and options.get('path'):
@@ -1052,7 +1052,7 @@ class Preprocessor(BasePreprocessor):
                             include_link=include_link
                         )
 
-                        donor_md_path = include_link  + "3"
+                        donor_md_path = include_link
 
                     elif options.get('url'):
                         self.logger.debug('File to get by URL referenced')
@@ -1080,21 +1080,20 @@ class Preprocessor(BasePreprocessor):
                             nohead=options.get('nohead')
                         )
                         
-                        donor_md_path = options['url']  + "4"
+                        donor_md_path = options['url']
 
                     elif options.get('src'):
                         self.logger.debug('Local file referenced')
 
-                        # donor_md_path = f"{self.src_dir}/{markdown_file_path.relative_to(os.getcwd()).relative_to(self.working_dir).as_posix()}"  + "5"
                         included_file_path = self._get_included_file_path(options.get('src'), markdown_file_path)
                         self.logger.debug(f'Resolved path to the included file: {included_file_path}')
                         
                         if included_file_path.as_posix().startswith(os.getcwd()):
                             _path = included_file_path.relative_to(os.getcwd())
                             if _path.as_posix().startswith(self.working_dir.as_posix()):
-                                donor_md_path = f"{self.src_dir}/{_path.relative_to(self.working_dir).as_posix()}" + "5"
+                                donor_md_path = f"{self.src_dir}/{_path.relative_to(self.working_dir).as_posix()}"
                             else:
-                                donor_md_path = _path.as_posix() + "6"
+                                donor_md_path = _path.as_posix()
 
                         if options.get('project_root'):
                             current_project_root_path = (
