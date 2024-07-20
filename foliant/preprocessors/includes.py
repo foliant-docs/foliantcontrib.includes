@@ -1058,7 +1058,7 @@ class Preprocessor(BasePreprocessor):
                             include_link=include_link
                         )
 
-                        donor_md_path = include_link
+                        donor_md_path = include_link + options.get('path')
                         
                         self.logger.debug(f'Set the link of the included file to {recipient_md_path}: {donor_md_path} (3)')
 
