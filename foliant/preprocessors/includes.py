@@ -835,6 +835,16 @@ class Preprocessor(BasePreprocessor):
 
         return included_content
 
+    def _prepare_path_for_includes_map(self, path: Path) -> str:
+        donor_path = None
+        if path.as_posix().startswith(os.getcwd()):
+            _path = path.relative_to(os.getcwd())
+            if _path.as_posix().startswith(self.working_dir.as_posix()):
+                donor_path = f"{self.src_dir}/{_path.relative_to(self.working_dir).as_posix()}"
+            else:
+                donor_path = _path.as_posix()
+        return donor_path
+
     def process_includes(
             self,
             markdown_file_path: Path,
@@ -965,7 +975,6 @@ class Preprocessor(BasePreprocessor):
                         included_file_path = repo_path / body.group('path')
                         
                         donor_md_path = included_file_path.as_posix()
-                        
                         self.logger.debug(f'Set the repo URL of the included file to {recipient_md_path}: {donor_md_path} (1)')
 
                         if included_file_path.name.startswith('^'):
@@ -1018,8 +1027,8 @@ class Preprocessor(BasePreprocessor):
                             nohead=options.get('nohead')
                         )
 
-                        donor_md_path = f"{self.src_dir}/{included_file_path.relative_to(os.getcwd()).relative_to(self.working_dir).as_posix()}"
                         
+                        donor_md_path = f"{self.src_dir}/{self._prepare_path_for_includes_map(included_file_path)}"
                         self.logger.debug(f'Set the path of the included file to {recipient_md_path}: {donor_md_path} (2)')
 
                 else:  # if body is missing
@@ -1059,7 +1068,6 @@ class Preprocessor(BasePreprocessor):
                         )
 
                         donor_md_path = include_link + options.get('path')
-                        
                         self.logger.debug(f'Set the link of the included file to {recipient_md_path}: {donor_md_path} (3)')
 
                     elif options.get('url'):
@@ -1089,7 +1097,6 @@ class Preprocessor(BasePreprocessor):
                         )
                         
                         donor_md_path = options['url']
-                        
                         self.logger.debug(f'Set the URL of the included file to {recipient_md_path}: {donor_md_path} (4)')
 
                     elif options.get('src'):
@@ -1098,13 +1105,7 @@ class Preprocessor(BasePreprocessor):
                         included_file_path = self._get_included_file_path(options.get('src'), markdown_file_path)
                         self.logger.debug(f'Resolved path to the included file: {included_file_path}')
                         
-                        if included_file_path.as_posix().startswith(os.getcwd()):
-                            _path = included_file_path.relative_to(os.getcwd())
-                            if _path.as_posix().startswith(self.working_dir.as_posix()):
-                                donor_md_path = f"{self.src_dir}/{_path.relative_to(self.working_dir).as_posix()}"
-                            else:
-                                donor_md_path = _path.as_posix()
-                                
+                        donor_md_path = self._prepare_path_for_includes_map(included_file_path)
                         self.logger.debug(f'Set the path of the included file to {recipient_md_path}: {donor_md_path} (5)')
 
                         if options.get('project_root'):
