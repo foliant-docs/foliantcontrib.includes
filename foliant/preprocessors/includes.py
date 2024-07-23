@@ -1,13 +1,13 @@
 import re
 import urllib
-import json
-import os
 from shutil import rmtree
 from io import StringIO
 from hashlib import md5
 from pathlib import Path
 import socket
 from subprocess import run, CalledProcessError, PIPE, STDOUT
+from json import dump
+from os import getcwd
 
 
 from foliant.preprocessors.base import BasePreprocessor
@@ -23,7 +23,7 @@ class Preprocessor(BasePreprocessor):
         'cache_dir': Path('.includescache'),
         'aliases': {},
         'extensions': ['md'],
-        'includes_map': False
+        'includes_map': True
     }
 
     tags = 'include',
@@ -843,8 +843,8 @@ class Preprocessor(BasePreprocessor):
         if path.as_posix().startswith(self.working_dir.as_posix()):
             _path = path.relative_to(self.working_dir)
             donor_path = f"{self.src_dir}/{_path.as_posix()}"
-        elif path.as_posix().startswith(os.getcwd()):
-            _path = path.relative_to(os.getcwd())
+        elif path.as_posix().startswith(getcwd()):
+            _path = path.relative_to(getcwd())
             if _path.as_posix().startswith(self.working_dir.as_posix()):
                 _path = _path.relative_to(self.working_dir)
                 if _path.as_posix().startswith(self.working_dir.as_posix()):
@@ -1270,7 +1270,7 @@ class Preprocessor(BasePreprocessor):
             output = f'{self.working_dir}/static/includes_map.json'
             Path(f'{self.working_dir}/static/').mkdir(parents=True, exist_ok=True)
             with open(f'{self.working_dir}/static/includes_map.json', 'w', encoding='utf8') as f:
-                json.dump(self.includes_map, f)
+                dump(self.includes_map, f)
             self.logger.debug(f'includes_map write to {output}')
 
         self.logger.info('Preprocessor applied')
