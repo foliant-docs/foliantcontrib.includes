@@ -22,7 +22,8 @@ class Preprocessor(BasePreprocessor):
         'allow_failure': True,
         'cache_dir': Path('.includescache'),
         'aliases': {},
-        'extensions': ['md']
+        'extensions': ['md'],
+        'includes_map': False
     }
 
     tags = 'include',
@@ -46,7 +47,9 @@ class Preprocessor(BasePreprocessor):
         self._cache_dir_path = self.project_path / self.options['cache_dir']
         self._downloaded_dir_path = self._cache_dir_path / '_downloaded_content'
         self.src_dir = self.config.get("src_dir")
-        self.includes_map = {}
+        self.includes_map_enable = self.options['includes_map']
+        if self.includes_map_enable:
+            self.includes_map = {}
 
         self.logger = self.logger.getChild('includes')
 
@@ -837,10 +840,17 @@ class Preprocessor(BasePreprocessor):
 
     def _prepare_path_for_includes_map(self, path: Path) -> str:
         donor_path = None
-        if path.as_posix().startswith(os.getcwd()):
+        if path.as_posix().startswith(self.working_dir.as_posix()):
+            _path = path.relative_to(self.working_dir)
+            donor_path = f"{self.src_dir}/{_path.as_posix()}"
+        elif path.as_posix().startswith(os.getcwd()):
             _path = path.relative_to(os.getcwd())
             if _path.as_posix().startswith(self.working_dir.as_posix()):
-                donor_path = f"{self.src_dir}/{_path.relative_to(self.working_dir).as_posix()}"
+                _path = _path.relative_to(self.working_dir)
+                if _path.as_posix().startswith(self.working_dir.as_posix()):
+                    donor_path = f"{self.src_dir}/{_path.relative_to(self.working_dir).as_posix()}"
+                else:
+                    donor_path = f"{self.src_dir}/{_path.as_posix()}"
             else:
                 donor_path = _path.as_posix()
         return donor_path
@@ -864,7 +874,8 @@ class Preprocessor(BasePreprocessor):
         :returns: Markdown content with resolved includes
         '''
 
-        recipient_md_path = f'{self.src_dir}/{markdown_file_path.relative_to(self.working_dir).as_posix()}'
+        if self.includes_map_enable:
+            recipient_md_path = f'{self.src_dir}/{markdown_file_path.relative_to(self.working_dir).as_posix()}'
 
         markdown_file_path = markdown_file_path.resolve()
 
@@ -883,7 +894,8 @@ class Preprocessor(BasePreprocessor):
             include_statement = self.pattern.fullmatch(content_part)
 
             if include_statement:
-                donor_md_path = None
+                if self.includes_map_enable:
+                    donor_md_path = None
 
                 current_project_root_path = project_root_path
 
@@ -974,8 +986,9 @@ class Preprocessor(BasePreprocessor):
 
                         included_file_path = repo_path / body.group('path')
                         
-                        donor_md_path = included_file_path.as_posix()
-                        self.logger.debug(f'Set the repo URL of the included file to {recipient_md_path}: {donor_md_path} (1)')
+                        if self.includes_map_enable:
+                            donor_md_path = included_file_path.as_posix()
+                            self.logger.debug(f'Set the repo URL of the included file to {recipient_md_path}: {donor_md_path} (1)')
 
                         if included_file_path.name.startswith('^'):
                             included_file_path = self._find_file(
@@ -1027,9 +1040,9 @@ class Preprocessor(BasePreprocessor):
                             nohead=options.get('nohead')
                         )
 
-                        
-                        donor_md_path = f"{self.src_dir}/{self._prepare_path_for_includes_map(included_file_path)}"
-                        self.logger.debug(f'Set the path of the included file to {recipient_md_path}: {donor_md_path} (2)')
+                        if self.includes_map_enable:
+                            donor_md_path = f"{self.src_dir}/{self._prepare_path_for_includes_map(included_file_path)}"
+                            self.logger.debug(f'Set the path of the included file to {recipient_md_path}: {donor_md_path} (2)')
 
                 else:  # if body is missing
                     self.logger.debug('Using the new syntax rules')
@@ -1067,8 +1080,9 @@ class Preprocessor(BasePreprocessor):
                             include_link=include_link
                         )
 
-                        donor_md_path = include_link + options.get('path')
-                        self.logger.debug(f'Set the link of the included file to {recipient_md_path}: {donor_md_path} (3)')
+                        if self.includes_map_enable:
+                            donor_md_path = include_link + options.get('path')
+                            self.logger.debug(f'Set the link of the included file to {recipient_md_path}: {donor_md_path} (3)')
 
                     elif options.get('url'):
                         self.logger.debug('File to get by URL referenced')
@@ -1096,8 +1110,9 @@ class Preprocessor(BasePreprocessor):
                             nohead=options.get('nohead')
                         )
                         
-                        donor_md_path = options['url']
-                        self.logger.debug(f'Set the URL of the included file to {recipient_md_path}: {donor_md_path} (4)')
+                        if self.includes_map_enable:
+                            donor_md_path = options['url']
+                            self.logger.debug(f'Set the URL of the included file to {recipient_md_path}: {donor_md_path} (4)')
 
                     elif options.get('src'):
                         self.logger.debug('Local file referenced')
@@ -1105,8 +1120,9 @@ class Preprocessor(BasePreprocessor):
                         included_file_path = self._get_included_file_path(options.get('src'), markdown_file_path)
                         self.logger.debug(f'Resolved path to the included file: {included_file_path}')
                         
-                        donor_md_path = self._prepare_path_for_includes_map(included_file_path)
-                        self.logger.debug(f'Set the path of the included file to {recipient_md_path}: {donor_md_path} (5)')
+                        if self.includes_map_enable:
+                            donor_md_path = self._prepare_path_for_includes_map(included_file_path)
+                            self.logger.debug(f'Set the path of the included file to {recipient_md_path}: {donor_md_path} (5)')
 
                         if options.get('project_root'):
                             current_project_root_path = (
@@ -1184,11 +1200,12 @@ class Preprocessor(BasePreprocessor):
 
                     processed_content_part = re.sub(r'\s+', ' ', processed_content_part).strip()
 
-                if donor_md_path:
-                    if self.includes_map.get(recipient_md_path) == None :
-                        self.includes_map[recipient_md_path] = []
+                if self.includes_map_enable:
+                    if donor_md_path:
+                        if self.includes_map.get(recipient_md_path) == None :
+                            self.includes_map[recipient_md_path] = []
 
-                    self.includes_map[recipient_md_path].append(donor_md_path)
+                        self.includes_map[recipient_md_path].append(donor_md_path)
 
             else:
                 processed_content_part = content_part
@@ -1249,8 +1266,11 @@ class Preprocessor(BasePreprocessor):
                         processed_file.write(processed_content)
                         
         # Write includes map
-        Path(f'{self.working_dir}/static/').mkdir(parents=True, exist_ok=True)
-        with open(f'{self.working_dir}/static/includes_map.json', 'w', encoding='utf8') as f:
-            json.dump(self.includes_map, f)
+        if self.includes_map_enable:
+            output = f'{self.working_dir}/static/includes_map.json'
+            Path(f'{self.working_dir}/static/').mkdir(parents=True, exist_ok=True)
+            with open(f'{self.working_dir}/static/includes_map.json', 'w', encoding='utf8') as f:
+                json.dump(self.includes_map, f)
+            self.logger.debug(f'includes_map write to {output}')
 
         self.logger.info('Preprocessor applied')
