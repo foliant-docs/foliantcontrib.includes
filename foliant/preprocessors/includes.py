@@ -902,12 +902,6 @@ class Preprocessor(BasePreprocessor):
                 body = self._tag_body_pattern.match(include_statement.group('body').strip())
                 options = self.get_options(include_statement.group('options'))
 
-                self.logger.debug(f'Include pair: {markdown_file_path} <- {options} {body}')
-                
-                # TODO: 
-                # :param markdown_file_path:
-                # :returns date:
-
                 self.logger.debug(
                     f'Processing include statement; body: {body}, options: {options}, ' +
                     f'current project root path: {current_project_root_path}'
