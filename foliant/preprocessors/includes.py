@@ -49,7 +49,7 @@ class Preprocessor(BasePreprocessor):
         self.src_dir = self.config.get("src_dir")
         self.includes_map_enable = self.options['includes_map']
         if self.includes_map_enable:
-            self.includes_map = {}
+            self.includes_map = []
 
         self.logger = self.logger.getChild('includes')
 
@@ -855,6 +855,12 @@ class Preprocessor(BasePreprocessor):
                 donor_path = _path.as_posix()
         return donor_path
 
+    def _exist_in_includes_map(self, map: list, path: str) -> bool:
+        for obj in map:
+            if obj["file"] == path:
+                return True
+        return False
+
     def process_includes(
             self,
             markdown_file_path: Path,
@@ -1035,7 +1041,7 @@ class Preprocessor(BasePreprocessor):
                         )
 
                         if self.includes_map_enable:
-                            donor_md_path = f"{self.src_dir}/{self._prepare_path_for_includes_map(included_file_path)}"
+                            donor_md_path = self._prepare_path_for_includes_map(included_file_path)
                             self.logger.debug(f'Set the path of the included file to {recipient_md_path}: {donor_md_path} (2)')
 
                 else:  # if body is missing
@@ -1196,10 +1202,11 @@ class Preprocessor(BasePreprocessor):
 
                 if self.includes_map_enable:
                     if donor_md_path:
-                        if self.includes_map.get(recipient_md_path) == None :
-                            self.includes_map[recipient_md_path] = []
-
-                        self.includes_map[recipient_md_path].append(donor_md_path)
+                        if not self._exist_in_includes_map(self.includes_map, recipient_md_path):
+                            self.includes_map.append({ 'file': recipient_md_path, "includes": [] })
+                        for i, f in enumerate(self.includes_map):
+                            if f['file'] == recipient_md_path:
+                                self.includes_map[i]['includes'].append(donor_md_path)
 
             else:
                 processed_content_part = content_part
