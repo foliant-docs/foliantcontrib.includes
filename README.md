@@ -1,4 +1,4 @@
-[![](https://img.shields.io/pypi/v/foliantcontrib.includes.svg)](https://pypi.org/project/foliantcontrib.includes/) [![](https://img.shields.io/github/v/tag/foliant-docs/foliantcontrib.includes.svg?label=GitHub)](https://github.com/foliant-docs/foliantcontrib.includes)
+[![](https://img.shields.io/pypi/v/foliantcontrib.includes.svg)](https://pypi.org/project/foliantcontrib.includes/) [![](https://img.shields.io/github/v/tag/foliant-docs/foliantcontrib.includes.svg?label=GitHub)](https://github.com/foliant-docs/foliantcontrib.includes) [![Tests](https://github.com/foliant-docs/foliantcontrib.includes/actions/workflows/python-test.yml/badge.svg)](https://github.com/foliant-docs/foliantcontrib.includes/actions/workflows/python-test.yml)
 
 # Includes for Foliant
 
