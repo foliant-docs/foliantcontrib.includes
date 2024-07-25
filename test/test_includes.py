@@ -243,3 +243,21 @@ class TestIncludesBasic(TestCase):
             'index.j2': '# My title\n\nIncluded content',
             'sub/sub.md': 'Included content'
         }
+
+    def test_includes_map(self):
+        self.ptf.options = {'includes_map': True }
+        input_map = {
+            'index.md': '# My title\n\n<include src="sub/sub-1.md"></include>\n\n<include src="sub/sub-2.md"></include>',
+            'sub/sub-1.md': 'Included content 1',
+            'sub/sub-2.md': 'Included content 2'
+        }
+        expected_map = {
+            'index.md': '# My title\n\nIncluded content 1\n\nIncluded content 2',
+            'static/includes_map.json': "[{\"file\": \"__src__/index.md\", \"includes\": [\"__src__/sub/sub-1.md\", \"__src__/sub/sub-2.md\"]}]",
+            'sub/sub-1.md': 'Included content 1',
+            'sub/sub-2.md': 'Included content 2'
+        }
+        self.ptf.test_preprocessor(
+            input_mapping=input_map,
+            expected_mapping=expected_map,
+        )
