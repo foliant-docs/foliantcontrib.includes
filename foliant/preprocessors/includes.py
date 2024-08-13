@@ -23,7 +23,7 @@ class Preprocessor(BasePreprocessor):
         'cache_dir': Path('.includescache'),
         'aliases': {},
         'extensions': ['md'],
-        'includes_map': False
+        'includes_map': True
     }
 
     tags = 'include',
