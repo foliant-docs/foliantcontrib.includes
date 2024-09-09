@@ -46,13 +46,14 @@ class Preprocessor(BasePreprocessor):
         self._cache_dir_path = self.project_path / self.options['cache_dir']
         self._downloaded_dir_path = self._cache_dir_path / '_downloaded_content'
         self.src_dir = self.config.get("src_dir")
-        self.includes_map_enable = False
-        self.includes_map_anchors = False
+        self.includes_map_enable = True # TODO: the default value is False
+        self.includes_map_anchors = True # TODO: the default value is False
         if 'includes_map' in self.options:
             self.includes_map_enable = True
-            self.includes_map = []
             if 'anchors' in self.options['includes_map']:
                 self.includes_map_anchors = True
+        if self.includes_map_enable:
+            self.includes_map = []
 
         self.logger = self.logger.getChild('includes')
 
