@@ -32,6 +32,7 @@ preprocessors:
             - j2
         aliases:
             ...
+        includes_map: true
 ```
 
 `cache_dir`
@@ -78,6 +79,11 @@ Default `true`.
         <include>$baz#master$path/to/doc.md</include>
 
     Note that in the second example the default revision (`develop`) will be overridden with the custom one (`master`).
+
+`includes_map`
+:   Enables generation of the `includes_map.json` file containing information about files inserted using the includes preprocessor.
+
+    From this file, third-party services can receive information about the presence of inclusions in files, for example, to check links using a linter.
 
 ## Usage
 
