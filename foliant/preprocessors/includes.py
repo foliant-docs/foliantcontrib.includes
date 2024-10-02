@@ -46,12 +46,9 @@ class Preprocessor(BasePreprocessor):
         self._cache_dir_path = self.project_path / self.options['cache_dir']
         self._downloaded_dir_path = self._cache_dir_path / '_downloaded_content'
         self.src_dir = self.config.get("src_dir")
-        self.includes_map_enable = True # TODO: the default value is False
-        self.includes_map_anchors = True # TODO: the default value is False
+        self.includes_map_enable = False
         if 'includes_map' in self.options:
             self.includes_map_enable = True
-            if 'anchors' in self.options['includes_map']:
-                self.includes_map_anchors = True
         if self.includes_map_enable:
             self.includes_map = []
 
@@ -1021,9 +1018,6 @@ class Preprocessor(BasePreprocessor):
                             donor_md_path = included_file_path.as_posix()
                             self.logger.debug(f'Set the repo URL of the included file to {recipient_md_path}: {donor_md_path} (1)')
 
-                            if self.includes_map_anchors:
-                                donor_anchors = self._add_anchors(donor_anchors, processed_content_part)
-
                         if included_file_path.name.startswith('^'):
                             included_file_path = self._find_file(
                                 included_file_path.name[1:], included_file_path.parent
@@ -1078,9 +1072,6 @@ class Preprocessor(BasePreprocessor):
                             donor_md_path = self._prepare_path_for_includes_map(included_file_path)
                             self.logger.debug(f'Set the path of the included file to {recipient_md_path}: {donor_md_path} (2)')
 
-                            if self.includes_map_anchors:
-                                donor_anchors = self._add_anchors(donor_anchors, processed_content_part)
-
                 else:  # if body is missing
                     self.logger.debug('Using the new syntax rules')
 
@@ -1121,9 +1112,6 @@ class Preprocessor(BasePreprocessor):
                             donor_md_path = include_link + options.get('path')
                             self.logger.debug(f'Set the link of the included file to {recipient_md_path}: {donor_md_path} (3)')
 
-                            if self.includes_map_anchors:
-                                donor_anchors = self._add_anchors(donor_anchors, processed_content_part)
-
                     elif options.get('url'):
                         self.logger.debug('File to get by URL referenced')
 
@@ -1154,9 +1142,6 @@ class Preprocessor(BasePreprocessor):
                             donor_md_path = options['url']
                             self.logger.debug(f'Set the URL of the included file to {recipient_md_path}: {donor_md_path} (4)')
 
-                            if self.includes_map_anchors:
-                                donor_anchors = self._add_anchors(donor_anchors, processed_content_part)
-
                     elif options.get('src'):
                         self.logger.debug('Local file referenced')
 
@@ -1166,9 +1151,6 @@ class Preprocessor(BasePreprocessor):
                         if self.includes_map_enable:
                             donor_md_path = self._prepare_path_for_includes_map(included_file_path)
                             self.logger.debug(f'Set the path of the included file to {recipient_md_path}: {donor_md_path} (5)')
-
-                            if self.includes_map_anchors:
-                                donor_anchors = self._add_anchors(donor_anchors, processed_content_part)
 
                         if options.get('project_root'):
                             current_project_root_path = (
@@ -1249,18 +1231,11 @@ class Preprocessor(BasePreprocessor):
                 if self.includes_map_enable:
                     if donor_md_path:
                         if not self._exist_in_includes_map(self.includes_map, recipient_md_path):
-                            if not self.includes_map_anchors:
-                                self.includes_map.append({ 'file': recipient_md_path, "includes": []})
-                            else:
-                                self.includes_map.append({ 'file': recipient_md_path, "includes": [], 'anchors': []})
+                            self.includes_map.append({ 'file': recipient_md_path, "includes": []})
 
                         for i, f in enumerate(self.includes_map):
                             if f['file'] == recipient_md_path:
                                 self.includes_map[i]['includes'].append(donor_md_path)
-
-                                if self.includes_map_anchors:
-                                    for anchor in donor_anchors:
-                                        self.includes_map[i]['anchors'].append(anchor)
 
             else:
                 processed_content_part = content_part
