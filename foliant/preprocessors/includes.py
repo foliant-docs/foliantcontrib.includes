@@ -897,10 +897,10 @@ class Preprocessor(BasePreprocessor):
         anchors = re.findall(r'\<anchor\>([\-\_A-Za-z0-9]+)\<\/anchor\>', content)
         for anchor in anchors:
             anchors_list.append(anchor)
-        custom_ids = re.findall(r'\{\#([\-A-Za-z0-9]+)\}', content)
+        custom_ids = re.findall(r'\{\#([\-\_A-Za-z0-9]+)\}', content)
         for anchor in custom_ids:
             anchors_list.append(anchor)
-        elements_with_ids = re.findall(r'id\=[\"\']([\-A-Za-z0-9]+)[\"\']', content)
+        elements_with_ids = re.findall(r'id\=[\"\']([\-\_A-Za-z0-9]+)[\"\']', content)
         for anchor in elements_with_ids:
             anchors_list.append(anchor)
         return anchors_list
