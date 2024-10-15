@@ -1,4 +1,4 @@
-[![](https://img.shields.io/pypi/v/foliantcontrib.includes.svg)](https://pypi.org/project/foliantcontrib.includes/) [![](https://img.shields.io/github/v/tag/foliant-docs/foliantcontrib.includes.svg?label=GitHub)](https://github.com/foliant-docs/foliantcontrib.includes)
+[![](https://img.shields.io/pypi/v/foliantcontrib.includes.svg)](https://pypi.org/project/foliantcontrib.includes/) [![](https://img.shields.io/github/v/tag/foliant-docs/foliantcontrib.includes.svg?label=GitHub)](https://github.com/foliant-docs/foliantcontrib.includes) [![Tests](https://github.com/foliant-docs/foliantcontrib.includes/actions/workflows/python-test.yml/badge.svg)](https://github.com/foliant-docs/foliantcontrib.includes/actions/workflows/python-test.yml)
 
 # Includes for Foliant
 
@@ -32,6 +32,7 @@ preprocessors:
             - j2
         aliases:
             ...
+        includes_map: true
 ```
 
 `cache_dir`
@@ -78,6 +79,11 @@ Default `true`.
         <include>$baz#master$path/to/doc.md</include>
 
     Note that in the second example the default revision (`develop`) will be overridden with the custom one (`master`).
+
+`includes_map`
+:   Enables generation of the `includes_map.json` file containing information about files inserted using the includes preprocessor.
+
+    From this file, third-party services can receive information about the presence of inclusions in files, for example, to check links using a linter.
 
 ## Usage
 

@@ -1,4 +1,4 @@
-[![](https://img.shields.io/pypi/v/foliantcontrib.includes.svg)](https://pypi.org/project/foliantcontrib.includes/) [![](https://img.shields.io/github/v/tag/foliant-docs/foliantcontrib.includes.svg?label=GitHub)](https://github.com/foliant-docs/foliantcontrib.includes)
+[![](https://img.shields.io/pypi/v/foliantcontrib.includes.svg)](https://pypi.org/project/foliantcontrib.includes/) [![](https://img.shields.io/github/v/tag/foliant-docs/foliantcontrib.includes.svg?label=GitHub)](https://github.com/foliant-docs/foliantcontrib.includes) [![Tests](https://github.com/foliant-docs/foliantcontrib.includes/actions/workflows/python-test.yml/badge.svg)](https://github.com/foliant-docs/foliantcontrib.includes/actions/workflows/python-test.yml)
 
 # Препроцессор Includes для Foliant
 
@@ -34,6 +34,7 @@ preprocessors:
             - j2
         aliases:
             ...
+        includes_map: true
 ```
 
 `cache_dir`
@@ -63,6 +64,10 @@ preprocessors:
 
 `aliases`
 :   Сопоставление псевдонимов с URL-адресами репозитория Git. После определения этого параметра псевдоним может использоваться для ссылки на репозиторий вместо его полного URL-адреса.
+
+`includes_map`
+:   Включает генерацию файла `includes_map.json`, содержащего информацию о файлах, вставленных с помощью препроцессора includes.
+ Из этого файла сторонние сервисы могут получать информацию о наличии текста вставленного в файл с помощью препроцессора, например, для проверки ссылок с помощью линтера.
 
 >**Внимание!**
 >
