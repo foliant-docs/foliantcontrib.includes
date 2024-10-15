@@ -50,9 +50,11 @@ class Preprocessor(BasePreprocessor):
         self.includes_map_anchors = True # TODO:set the default value to False
         if 'includes_map' in self.options:
             self.includes_map_enable = True
-            self.includes_map = []
             if 'anchors' in self.options['includes_map']:
                 self.includes_map_anchors = True
+
+        if self.includes_map_enable:
+            self.includes_map = []
 
         self.logger = self.logger.getChild('includes')
 
