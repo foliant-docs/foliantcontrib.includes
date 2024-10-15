@@ -46,8 +46,8 @@ class Preprocessor(BasePreprocessor):
         self._cache_dir_path = self.project_path / self.options['cache_dir']
         self._downloaded_dir_path = self._cache_dir_path / '_downloaded_content'
         self.src_dir = self.config.get("src_dir")
-        self.includes_map_enable = False
-        self.includes_map_anchors = False
+        self.includes_map_enable = True # TODO:set the default value to False
+        self.includes_map_anchors = True # TODO:set the default value to False
         if 'includes_map' in self.options:
             self.includes_map_enable = True
             self.includes_map = []
