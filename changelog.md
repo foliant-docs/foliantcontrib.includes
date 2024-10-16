@@ -1,3 +1,7 @@
+# 1.1.18
+
+- Add: option for generation of the includes map containing information about files inserted using the preprocessor.
+
 # 1.1.17
 
 - Fix: fixed a link processing error for files with diagrams
