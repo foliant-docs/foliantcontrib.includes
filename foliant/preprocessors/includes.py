@@ -921,6 +921,9 @@ class Preprocessor(BasePreprocessor):
                 l.append(anchor)
         return l
 
+    def clean_tokens(self, url: str) -> str:
+        return re.sub(r"(https*://)(.*)@(.*)", r"\1\3", url)
+
     def process_includes(
             self,
             markdown_file_path: Path,
@@ -1054,6 +1057,7 @@ class Preprocessor(BasePreprocessor):
 
                         if self.includes_map_enable:
                             donor_md_path = included_file_path.as_posix()
+                            donor_md_path = self.clean_tokens(donor_md_path)
                             self.logger.debug(f'Set the repo URL of the included file to {recipient_md_path}: {donor_md_path} (1)')
 
 
@@ -1112,6 +1116,7 @@ class Preprocessor(BasePreprocessor):
 
                         if self.includes_map_enable:
                             donor_md_path = self._prepare_path_for_includes_map(included_file_path)
+                            donor_md_path = self.clean_tokens(donor_md_path)
                             self.logger.debug(f'Set the path of the included file to {recipient_md_path}: {donor_md_path} (2)')
 
                             if self.includes_map_enable and self.includes_map_anchors:
@@ -1155,6 +1160,7 @@ class Preprocessor(BasePreprocessor):
 
                         if self.includes_map_enable:
                             donor_md_path = include_link + options.get('path')
+                            donor_md_path = self.clean_tokens(donor_md_path)
                             self.logger.debug(f'Set the link of the included file to {recipient_md_path}: {donor_md_path} (3)')
 
                             if self.includes_map_enable and self.includes_map_anchors:
@@ -1188,6 +1194,7 @@ class Preprocessor(BasePreprocessor):
 
                         if self.includes_map_enable:
                             donor_md_path = options['url']
+                            donor_md_path = self.clean_tokens(donor_md_path)
                             self.logger.debug(f'Set the URL of the included file to {recipient_md_path}: {donor_md_path} (4)')
 
                             if self.includes_map_enable and self.includes_map_anchors:
@@ -1220,6 +1227,7 @@ class Preprocessor(BasePreprocessor):
 
                         if self.includes_map_enable:
                             donor_md_path = self._prepare_path_for_includes_map(included_file_path)
+                            donor_md_path = self.clean_tokens(donor_md_path)
                             self.logger.debug(f'Set the path of the included file to {recipient_md_path}: {donor_md_path} (5)')
 
                             if self.includes_map_enable and self.includes_map_anchors:
