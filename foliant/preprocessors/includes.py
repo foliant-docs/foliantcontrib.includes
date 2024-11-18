@@ -56,9 +56,32 @@ class Preprocessor(BasePreprocessor):
         if self.includes_map_enable:
             self.includes_map = []
 
+        self.chapters = []
+        self.chapters_list(self.config["chapters"], self.chapters) # converting chapters to a list
+
         self.logger = self.logger.getChild('includes')
 
         self.logger.debug(f'Preprocessor inited: {self.__dict__}')
+
+    def chapters_list(self, obj, chapters: list) -> list:
+        '''Converting chapters to a list
+        :param config_chapters: Chapters from config
+        :param chapters: List of chapters
+        '''
+        if isinstance(obj, list):
+            for item in obj:
+                if isinstance(item, str):
+                    chapters.append(f"{self.src_dir}/{item}")
+                else:
+                    self.chapters_list(item, chapters)
+        elif isinstance(obj, Path):
+            chapters.append(f"{self.src_dir}/{obj.as_posix()}")
+        elif isinstance(obj, object):
+            for k, v in obj.items():
+                if isinstance(v, str):
+                    chapters.append(f"{self.src_dir}/{v}")
+                else:
+                    self.chapters_list(v, chapters)
 
     def _find_file(
             self,
@@ -1292,21 +1315,22 @@ class Preprocessor(BasePreprocessor):
 
                 if self.includes_map_enable:
                     if donor_md_path:
-                        if not self._exist_in_includes_map(self.includes_map, recipient_md_path):
-                            if not self.includes_map_anchors or len(donor_anchors) == 0:
-                                self.includes_map.append({ 'file': recipient_md_path, "includes": []})
-                            else:
-                                self.includes_map.append({ 'file': recipient_md_path, "includes": [], 'anchors': []})
+                        if recipient_md_path in self.chapters:
+                            if not self._exist_in_includes_map(self.includes_map, recipient_md_path):
+                                if not self.includes_map_anchors or len(donor_anchors) == 0:
+                                    self.includes_map.append({ 'file': recipient_md_path, "includes": []})
+                                else:
+                                    self.includes_map.append({ 'file': recipient_md_path, "includes": [], 'anchors': []})
 
-                        for i, f in enumerate(self.includes_map):
-                            if f['file'] == recipient_md_path:
-                                self.includes_map[i]['includes'].append(donor_md_path)
+                            for i, f in enumerate(self.includes_map):
+                                if f['file'] == recipient_md_path:
+                                    self.includes_map[i]['includes'].append(donor_md_path)
 
-                                if self.includes_map_anchors:
-                                    for anchor in donor_anchors:
-                                        if not 'anchors' in self.includes_map[i]:
-                                            self.includes_map[i]['anchors'] = []
-                                        self.includes_map[i]['anchors'].append(anchor)
+                                    if self.includes_map_anchors:
+                                        for anchor in donor_anchors:
+                                            if not 'anchors' in self.includes_map[i]:
+                                                self.includes_map[i]['anchors'] = []
+                                            self.includes_map[i]['anchors'].append(anchor)
 
             else:
                 processed_content_part = content_part
