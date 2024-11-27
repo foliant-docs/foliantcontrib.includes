@@ -55,6 +55,7 @@ class Preprocessor(BasePreprocessor):
 
         if self.includes_map_enable:
             self.includes_map = []
+            self.enable_clean_tokens = True
 
         self.chapters = []
         self.chapters_list(self.config["chapters"], self.chapters) # converting chapters to a list
@@ -945,7 +946,13 @@ class Preprocessor(BasePreprocessor):
         return l
 
     def clean_tokens(self, url: str) -> str:
-        return re.sub(r"(https*://)(.*)@(.*)", r"\1\3", url)
+        if self.enable_clean_tokens:
+            try:
+                s = re.sub(r"(https*://)(.*)@(.*)", r"\1\3", url)
+            except:
+                s = url
+
+        return s
 
     def process_includes(
             self,
