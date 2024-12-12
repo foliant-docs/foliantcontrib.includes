@@ -1322,7 +1322,7 @@ class Preprocessor(BasePreprocessor):
 
                 if self.includes_map_enable:
                     if donor_md_path:
-                        if recipient_md_path in self.chapters:
+                        if recipient_md_path in self.chapters or if "index.md" in recipient_md_path:
                             if not self._exist_in_includes_map(self.includes_map, recipient_md_path):
                                 if not self.includes_map_anchors or len(donor_anchors) == 0:
                                     self.includes_map.append({ 'file': recipient_md_path, "includes": []})
