@@ -33,6 +33,7 @@ class Preprocessor(BasePreprocessor):
     )
 
     _image_pattern = re.compile(r'\!\[(?P<caption>.*?)\]\((?P<path>((?!:\/\/).)+?)\)')
+    _link_pattern = re.compile(r'\[(?P<text>.*?)\]\((?P<path>((?!:\/\/).)+?)\)')
 
     _tag_body_pattern = re.compile(
         r'(\$(?P<repo>[^\#^\$]+)(\#(?P<revision>[^\$]+))?\$)?' +
@@ -45,7 +46,9 @@ class Preprocessor(BasePreprocessor):
 
         self._cache_dir_path = self.project_path / self.options['cache_dir']
         self._downloaded_dir_path = self._cache_dir_path / '_downloaded_content'
-        self.src_dir = self.config.get("src_dir")
+        self.src_dir = self.config.get('src_dir')
+        self.tmp_dir = self.config.get('tmp_dir', '__folianttmp__')
+
         self.includes_map_enable = True # TODO:set the default value to False
         self.includes_map_anchors = True # TODO:set the default value to False
         if 'includes_map' in self.options:
@@ -78,7 +81,7 @@ class Preprocessor(BasePreprocessor):
         elif isinstance(obj, Path):
             chapters.append(f"{self.src_dir}/{obj.as_posix()}")
         elif isinstance(obj, object):
-            for k, v in obj.items():
+            for _, v in obj.items():
                 if isinstance(v, str):
                     chapters.append(f"{self.src_dir}/{v}")
                 else:
@@ -180,8 +183,8 @@ class Preprocessor(BasePreprocessor):
 
                 # The beginning of the block codes for converting relative paths to links
                 dict_new_link = {}
-                regexp_find_link = re.compile('\[.+?\]\(.+?\)')
-                regexp_find_path = re.compile('\(.+?\)')
+                regexp_find_link = re.compile(r'\[.+?\]\(.+?\)')
+                regexp_find_path = re.compile(r'\(.+?\)')
 
                 old_found_link = regexp_find_link.findall(downloaded_content)
 
@@ -587,6 +590,52 @@ class Preprocessor(BasePreprocessor):
 
         return self._image_pattern.sub(_sub, content)
 
+    def _adjust_links(
+            self,
+            content: str,
+            markdown_file_path: Path,
+            origin_file_path: Path
+    ) -> str:
+        '''Locate internal link referenced in a Markdown string and replace their paths
+        with the relative ones.
+
+        :param content: Markdown content
+        :param markdown_file_path: Path to the Markdown file containing the content
+
+        :returns: Markdown content with relative internal link paths
+        '''
+
+        def _sub(m):
+            caption = m.group('text')
+            link = m.group('path')
+            anchor = ''
+
+            link_array = m.group('path').split('#')
+            if len(link_array) > 1:
+                link = link_array[0]
+                anchor = f'#{link_array[1]}'
+            root_path = self.project_path.absolute() / self.tmp_dir
+
+            if Path(link).is_absolute() is False:
+                try:
+                    origin_root = origin_file_path.relative_to(root_path)
+                    depth_origin = len(origin_root.parts)
+                    link = (markdown_file_path.absolute().parent / Path(link)).resolve()
+                    link = link.relative_to(root_path)
+                    link = '../' * depth_origin + link.as_posix()
+                    self.logger.debug(
+                        f'Updating link reference; user specified path: {m.group("path")}, ' +
+                        f'absolute path: {link}'
+                    )
+                except Exception as exception:
+                    self.logger.debug(
+                        f'An error {exception} occurred when resolving the link: {m.group("path")}'
+                    )
+                    link = m.group('path')
+            return f'[{caption}]({link}{anchor})'
+
+        return self._link_pattern.sub(_sub, content)
+
     def _adjust_paths_in_tags_attributes(
             self,
             content: str,
@@ -736,7 +785,8 @@ class Preprocessor(BasePreprocessor):
             to_end: bool = False,
             sethead: int or None = None,
             nohead: bool = False,
-            include_link: str or None = None
+            include_link: str or None = None,
+            origin_file_path: Path = None
     ) -> (str, list):
         '''Replace a local include statement with the file content. Necessary
         adjustments are applied to the content: cut between certain headings,
@@ -764,10 +814,7 @@ class Preprocessor(BasePreprocessor):
 
         anchors = []
 
-
-        if included_file_path.exists():
-            included_file_path = included_file_path
-        else:
+        if not included_file_path.exists():
             if self.options['allow_failure']:
                 self.logger.error(f'The url or repo_url link is not correct, file not found: {included_file_path}')
 
@@ -853,6 +900,7 @@ class Preprocessor(BasePreprocessor):
                 ).escape(included_content)
 
             included_content = self._adjust_image_paths(included_content, included_file_path)
+            included_content = self._adjust_links(included_content, included_file_path, origin_file_path)
 
             if project_root_path:
                 included_content = self._adjust_paths_in_tags_attributes(
@@ -898,7 +946,7 @@ class Preprocessor(BasePreprocessor):
                 donor_path = _path.as_posix()
         return donor_path
 
-    def _exist_in_includes_map(self, map: list, path: str) -> bool:
+    def _exist_in_includes_map(self, includes_map: list, path: str) -> bool:
         """Is there a path on the includes map
 
         :param map: Includes map
@@ -906,7 +954,7 @@ class Preprocessor(BasePreprocessor):
 
         :returns: True or False
         """
-        for obj in map:
+        for obj in includes_map:
             if obj["file"] == path:
                 return True
         return False
@@ -946,11 +994,11 @@ class Preprocessor(BasePreprocessor):
         return l
 
     def clean_tokens(self, url: str) -> str:
+        token_pattern = r"(https*://)(.*)@(.*)"
+        s = url
         if self.enable_clean_tokens:
-            try:
-                s = re.sub(r"(https*://)(.*)@(.*)", r"\1\3", url)
-            except:
-                s = url
+            if re.search(str(token_pattern), str(url)):
+                s = re.sub(str(token_pattern), r"\1\3", str(url))
 
         return s
 
@@ -1110,7 +1158,8 @@ class Preprocessor(BasePreprocessor):
                             from_heading=body.group('from_heading'),
                             to_heading=body.group('to_heading'),
                             sethead=current_sethead,
-                            nohead=options.get('nohead')
+                            nohead=options.get('nohead'),
+                            origin_file_path=markdown_file_path
                         )
 
                         if self.includes_map_enable and self.includes_map_anchors:
@@ -1141,7 +1190,8 @@ class Preprocessor(BasePreprocessor):
                             from_heading=body.group('from_heading'),
                             to_heading=body.group('to_heading'),
                             sethead=current_sethead,
-                            nohead=options.get('nohead')
+                            nohead=options.get('nohead'),
+                            origin_file_path=markdown_file_path
                         )
 
                         if self.includes_map_enable:
@@ -1185,7 +1235,8 @@ class Preprocessor(BasePreprocessor):
                             to_end=options.get('to_end'),
                             sethead=current_sethead,
                             nohead=options.get('nohead'),
-                            include_link=include_link
+                            include_link=include_link,
+                            origin_file_path=markdown_file_path
                         )
 
                         if self.includes_map_enable:
@@ -1219,7 +1270,8 @@ class Preprocessor(BasePreprocessor):
                             to_id=options.get('to_id'),
                             to_end=options.get('to_end'),
                             sethead=current_sethead,
-                            nohead=options.get('nohead')
+                            nohead=options.get('nohead'),
+                            origin_file_path=markdown_file_path
                         )
 
                         if self.includes_map_enable:
@@ -1252,7 +1304,8 @@ class Preprocessor(BasePreprocessor):
                             to_id=options.get('to_id'),
                             to_end=options.get('to_end'),
                             sethead=current_sethead,
-                            nohead=options.get('nohead')
+                            nohead=options.get('nohead'),
+                            origin_file_path=markdown_file_path
                         )
 
                         if self.includes_map_enable:
@@ -1283,6 +1336,7 @@ class Preprocessor(BasePreprocessor):
                 wrap_code = options.get('wrap_code', '')
 
                 if wrap_code == 'triple_backticks' or wrap_code == 'triple_tildas':
+                    wrapper = ''
                     if wrap_code == 'triple_backticks':
                         self.logger.debug('Wrapping included content as fence code block with triple backticks')
 
@@ -1337,7 +1391,8 @@ class Preprocessor(BasePreprocessor):
                                         for anchor in donor_anchors:
                                             if not 'anchors' in self.includes_map[i]:
                                                 self.includes_map[i]['anchors'] = []
-                                            self.includes_map[i]['anchors'].append(anchor)
+                                            if anchor not in self.includes_map[i]['anchors']:
+                                                self.includes_map[i]['anchors'].append(anchor)
 
             else:
                 processed_content_part = content_part
