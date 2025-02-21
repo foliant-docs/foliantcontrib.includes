@@ -859,7 +859,6 @@ class Preprocessor(BasePreprocessor):
                 for line in dict_new_link:
                     included_content = included_content.replace(line, dict_new_link[line])
             # End of the conversion code block
-
             # Removing metadata from content before including
 
             included_content = remove_meta(included_content)
@@ -1002,6 +1001,50 @@ class Preprocessor(BasePreprocessor):
 
         return s
 
+    def _prepare_path_for_includes_map(self, path: Path) -> str:
+        donor_path = None
+        if path.as_posix().startswith(self.working_dir.as_posix()):
+            _path = path.relative_to(self.working_dir)
+            donor_path = f"{self.src_dir}/{_path.as_posix()}"
+        elif path.as_posix().startswith(getcwd()):
+            _path = path.relative_to(getcwd())
+            if _path.as_posix().startswith(self.working_dir.as_posix()):
+                _path = _path.relative_to(self.working_dir)
+                if _path.as_posix().startswith(self.working_dir.as_posix()):
+                    donor_path = f"{self.src_dir}/{_path.relative_to(self.working_dir).as_posix()}"
+                else:
+                    donor_path = f"{self.src_dir}/{_path.as_posix()}"
+            else:
+                donor_path = _path.as_posix()
+        return donor_path
+
+    def _exist_in_includes_map(self, map: list, path: str) -> bool:
+        for obj in map:
+            if obj["file"] == path:
+                return True
+        return False
+
+    def _find_anchors(self, content: str) -> list:
+        anchors_list = []
+
+        anchors = re.findall(r'\<anchor\>([\-\_A-Za-z0-9]+)\<\/anchor\>', content)
+        for anchor in anchors:
+            anchors_list.append(anchor)
+        custom_ids = re.findall(r'\{\#([\-A-Za-z0-9]+)\}', content)
+        for anchor in custom_ids:
+            anchors_list.append(anchor)
+        elements_with_ids = re.findall(r'id\=[\"\']([\-A-Za-z0-9]+)[\"\']', content)
+        for anchor in elements_with_ids:
+            anchors_list.append(anchor)
+        return anchors_list
+
+    def _add_anchors(self, l: list, content: str) -> list:
+        anchors = self._find_anchors(content)
+        if len(anchors) > 0:
+            for anchor in anchors:
+                l.append(anchor)
+        return l
+
     def process_includes(
             self,
             markdown_file_path: Path,
@@ -1137,8 +1180,6 @@ class Preprocessor(BasePreprocessor):
                             donor_md_path = included_file_path.as_posix()
                             donor_md_path = self.clean_tokens(donor_md_path)
                             self.logger.debug(f'Set the repo URL of the included file to {recipient_md_path}: {donor_md_path} (1)')
-
-
                         if included_file_path.name.startswith('^'):
                             included_file_path = self._find_file(
                                 included_file_path.name[1:], included_file_path.parent
@@ -1288,6 +1329,10 @@ class Preprocessor(BasePreprocessor):
                         included_file_path = self._get_included_file_path(options.get('src'), markdown_file_path)
                         self.logger.debug(f'Resolved path to the included file: {included_file_path}')
 
+                        if self.includes_map_enable:
+                            donor_md_path = self._prepare_path_for_includes_map(included_file_path)
+                            self.logger.debug(f'Set the path of the included file to {recipient_md_path}: {donor_md_path} (5)')
+
                         if options.get('project_root'):
                             current_project_root_path = (
                                     markdown_file_path.parent / options.get('project_root')
@@ -1315,7 +1360,6 @@ class Preprocessor(BasePreprocessor):
 
                             if self.includes_map_enable and self.includes_map_anchors:
                                 donor_anchors = donor_anchors + anchors
-
                     else:
                         self.logger.warning(
                             'Neither repo_url+path nor src specified, ignoring the include statement'
