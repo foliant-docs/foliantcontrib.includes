@@ -49,8 +49,8 @@ class Preprocessor(BasePreprocessor):
         self.src_dir = self.config.get('src_dir')
         self.tmp_dir = self.config.get('tmp_dir', '__folianttmp__')
 
-        self.includes_map_enable = True # TODO:set the default value to False
-        self.includes_map_anchors = True # TODO:set the default value to False
+        self.includes_map_enable = False
+        self.includes_map_anchors = False
         if 'includes_map' in self.options:
             self.includes_map_enable = True
             if type(self.options['includes_map']) != bool and 'anchors' in self.options['includes_map']:
