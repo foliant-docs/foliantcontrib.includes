@@ -604,6 +604,16 @@ class Preprocessor(BasePreprocessor):
 
         :returns: Markdown content with relative internal link paths
         '''
+        def _resolve_md_link(link, root_path, depth_origin):
+            try:
+                resolved_link = (markdown_file_path.absolute().parent / Path(link)).resolve()
+                resolved_link = resolved_link.relative_to(root_path)
+                resolved_link = '../' * depth_origin + resolved_link.as_posix()
+                return resolved_link
+            except Exception as exception:
+                self.logger.debug(
+                    f'An error {exception} occurred when resolving the link: {link}'
+                )
 
         def _sub(m):
             caption = m.group('text')
@@ -616,38 +626,33 @@ class Preprocessor(BasePreprocessor):
             root_path = self.project_path.absolute() / self.tmp_dir
             if Path(link).is_absolute() is False:
                 extension = Path(link).suffix
-                if extension == ".md":
-                    try:
-                        origin_rel = origin_file_path.relative_to(root_path)
-                        depth_origin = len(origin_rel.parts)
-                        link = (markdown_file_path.absolute().parent / Path(link)).resolve()
-                        link = link.relative_to(root_path)
-                        link = '../' * depth_origin + link.as_posix()
-                        self.logger.debug(
-                            f'Updating link reference; user specified path: {m.group("path")}, ' +
-                            f'absolute path: {link}'
-                        )
-                    except Exception as exception:
-                        self.logger.debug(
-                            f'An error {exception} occurred when resolving the link: {m.group("path")}'
-                        )
-                        link = m.group('path')
-                elif extension == "":
-                    try:
-                        origin_rel = origin_file_path.relative_to(root_path)
-                        depth_origin = len(origin_rel.parts)
+                try:
+                    origin_rel = origin_file_path.relative_to(root_path)
+                    depth_origin = len(origin_rel.parts)
+                    if extension == ".md":
+                        link = _resolve_md_link(link, root_path, depth_origin)
+                    elif extension == "":
                         depth_markdown_file = len(markdown_file_path.relative_to(root_path).parts)
-                        if depth_origin > depth_markdown_file:
+                        if depth_origin >= depth_markdown_file:
                             link = '../' * (depth_origin - depth_markdown_file) + link
-                        self.logger.debug(
-                            f'Updating link reference; user specified path: {m.group("path")}, ' +
-                            f'absolute path: {link}'
-                        )
-                    except Exception as exception:
-                        self.logger.debug(
-                            f'An error {exception} occurred when resolving the link: {m.group("path")}'
-                        )
-                        link = m.group('path')
+                        else:
+                            link_split = link.split('/')
+                            if link_split[0] == '..':
+                                if link_split[-1] == '':
+                                    link_split = link_split[:-1]
+                                link_split = link_split[1:]
+                                link = f"{'/'.join(link_split)}.md"
+                                link = _resolve_md_link(link, root_path, depth_origin)
+                                print(link)
+                    self.logger.debug(
+                        f'Updating link reference; user specified path: {m.group("path")}, ' +
+                        f'absolute path: {link}'
+                    )
+                except Exception as exception:
+                    self.logger.debug(
+                        f'An error {exception} occurred when resolving the link: {m.group("path")}'
+                    )
+                    link = m.group('path')
 
             return f'[{caption}]({link}{anchor})'
 
