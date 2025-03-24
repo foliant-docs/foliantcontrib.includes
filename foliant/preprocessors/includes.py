@@ -643,7 +643,6 @@ class Preprocessor(BasePreprocessor):
                                 link_split = link_split[1:]
                                 link = f"{'/'.join(link_split)}.md"
                                 link = _resolve_md_link(link, root_path, depth_origin)
-                                print(link)
                     self.logger.debug(
                         f'Updating link reference; user specified path: {m.group("path")}, ' +
                         f'absolute path: {link}'
