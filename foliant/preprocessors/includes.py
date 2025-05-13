@@ -604,7 +604,7 @@ class Preprocessor(BasePreprocessor):
 
         :returns: Markdown content with relative internal link paths
         '''
-        def _resolve_md_link(link, root_path, depth_origin):
+        def _resolve_link(link, root_path, depth_origin):
             try:
                 resolved_link = (markdown_file_path.absolute().parent / Path(link)).resolve()
                 resolved_link = resolved_link.relative_to(root_path)
@@ -630,7 +630,7 @@ class Preprocessor(BasePreprocessor):
                     origin_rel = origin_file_path.relative_to(root_path)
                     depth_origin = len(origin_rel.parts)
                     if extension == ".md":
-                        link = _resolve_md_link(link, root_path, depth_origin)
+                        link = _resolve_link(link, root_path, depth_origin - 1)
                     elif extension == "":
                         depth_markdown_file = len(markdown_file_path.relative_to(root_path).parts)
                         if depth_origin >= depth_markdown_file:
@@ -642,7 +642,7 @@ class Preprocessor(BasePreprocessor):
                                     link_split = link_split[:-1]
                                 link_split = link_split[1:]
                                 link = f"{'/'.join(link_split)}.md"
-                                link = _resolve_md_link(link, root_path, depth_origin)
+                                link = _resolve_link(link, root_path, depth_origin)
                     self.logger.debug(
                         f'Updating link reference; user specified path: {m.group("path")}, ' +
                         f'absolute path: {link}'
