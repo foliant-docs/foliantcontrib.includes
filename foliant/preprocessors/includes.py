@@ -1045,27 +1045,6 @@ class Preprocessor(BasePreprocessor):
                 return True
         return False
 
-    def _find_anchors(self, content: str) -> list:
-        anchors_list = []
-
-        anchors = re.findall(r'\<anchor\>([\-\_A-Za-z0-9]+)\<\/anchor\>', content)
-        for anchor in anchors:
-            anchors_list.append(anchor)
-        custom_ids = re.findall(r'\{\#([\-A-Za-z0-9]+)\}', content)
-        for anchor in custom_ids:
-            anchors_list.append(anchor)
-        elements_with_ids = re.findall(r'id\=[\"\']([\-A-Za-z0-9]+)[\"\']', content)
-        for anchor in elements_with_ids:
-            anchors_list.append(anchor)
-        return anchors_list
-
-    def _add_anchors(self, l: list, content: str) -> list:
-        anchors = self._find_anchors(content)
-        if len(anchors) > 0:
-            for anchor in anchors:
-                l.append(anchor)
-        return l
-
     def process_includes(
             self,
             markdown_file_path: Path,
