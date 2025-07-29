@@ -629,12 +629,13 @@ class Preprocessor(BasePreprocessor):
                 try:
                     origin_rel = origin_file_path.relative_to(root_path)
                     depth_origin = len(origin_rel.parts)
+                    depth_markdown_file = len(markdown_file_path.relative_to(root_path).parts)
+                    depth_difference = depth_origin - depth_markdown_file
                     if extension == ".md":
                         link = _resolve_link(link, root_path, depth_origin - 1)
                     elif extension == "":
-                        depth_markdown_file = len(markdown_file_path.relative_to(root_path).parts)
                         if depth_origin >= depth_markdown_file:
-                            link = '../' * (depth_origin - depth_markdown_file) + link
+                            link = '../' * depth_difference + link
                         else:
                             link_split = link.split('/')
                             if link_split[0] == '..':
@@ -644,9 +645,9 @@ class Preprocessor(BasePreprocessor):
                                 link = f"{'/'.join(link_split)}.md"
                                 link = _resolve_link(link, root_path, depth_origin)
                     if (
-                        (depth_origin - depth_markdown_file) == 0
-                        )and (
-                        Path(Path(link).name).with_suffix('').as_posix() == Path(origin_rel.name).with_suffix('').as_posix()
+                        depth_difference == 0
+                        ) and (
+                            Path(Path(link).name).with_suffix('').as_posix() == Path(origin_rel.name).with_suffix('').as_posix()
                         ):
                         link = ''
                     self.logger.debug(
