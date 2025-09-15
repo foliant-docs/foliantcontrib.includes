@@ -1,5 +1,6 @@
 import re
-import urllib
+import urllib.request
+import urllib.error
 from shutil import rmtree
 from io import StringIO
 from hashlib import md5
@@ -204,7 +205,6 @@ class Preprocessor(BasePreprocessor):
                 # End of the conversion code block
 
                 with open(downloaded_file_path, 'w', encoding='utf8') as downloaded_file:
-
                     downloaded_file.write(downloaded_content)
         else:
             self.logger.debug('File found in cache, it was already downloaded at this run')
@@ -624,7 +624,7 @@ class Preprocessor(BasePreprocessor):
                 link = link_array[0]
                 anchor = f'#{link_array[1]}'
             root_path = self.project_path.absolute() / self.tmp_dir
-            if Path(link).is_absolute() is False:
+            if not Path(link).is_absolute():
                 extension = Path(link).suffix
                 try:
                     origin_rel = origin_file_path.relative_to(root_path)
@@ -774,7 +774,6 @@ class Preprocessor(BasePreprocessor):
 
         included_file_path = (current_processed_file_path.parent / user_specified_path).resolve()
 
-
         self.logger.debug(f'User-specified included file path: {included_file_path}')
 
         if (
@@ -851,15 +850,16 @@ class Preprocessor(BasePreprocessor):
                 if not Path(path_error_link).exists():
                     Path(path_error_link).mkdir()
 
-                path_error_file = open(path_error_link/included_file_path.name, 'w+')
+                path_error_file = open(path_error_link/included_file_path.name, 'w+', encoding='utf8')
 
                 if self.options['stub_text']:
                     path_error_file.write(f'The url or repo_url link is not correct, file not found: {included_file_path}')
                 path_error_file.close()
 
-                included_file_path=path_error_link/included_file_path.name
+                included_file_path = path_error_link/included_file_path.name
             else:
-                self.logger.error(f'The url or repo_url link is not correct, file not found: {included_file_path}')   
+                self.logger.error(f'The url or repo_url link is not correct, file not found: {included_file_path}')
+                return '', anchors
 
         with open(included_file_path, encoding='utf8') as included_file:
             included_content = included_file.read()
@@ -867,8 +867,8 @@ class Preprocessor(BasePreprocessor):
             # The beginning of the block codes for converting relative paths to links
             if include_link:
                 dict_new_link = {}
-                regexp_find_link = re.compile('\[.+?\]\(.+?\)')
-                regexp_find_path = re.compile('\(.+?\)')
+                regexp_find_link = re.compile(r'\[.+?\]\(.+?\)')
+                regexp_find_path = re.compile(r'\(.+?\)')
 
                 old_found_link = regexp_find_link.findall(included_content)
 
@@ -887,10 +887,9 @@ class Preprocessor(BasePreprocessor):
                 for line in dict_new_link:
                     included_content = included_content.replace(line, dict_new_link[line])
             # End of the conversion code block
+
             # Removing metadata from content before including
-
             included_content = remove_meta(included_content)
-
             included_content = self._cut_from_position_to_position(
                 included_content,
                 from_heading,
@@ -909,7 +908,6 @@ class Preprocessor(BasePreprocessor):
             if self.config.get('escape_code', False):
                 if isinstance(self.config['escape_code'], dict):
                     escapecode_options = self.config['escape_code'].get('options', {})
-
                 else:
                     escapecode_options = {}
 
@@ -950,42 +948,6 @@ class Preprocessor(BasePreprocessor):
 
         return included_content, anchors
 
-    def _prepare_path_for_includes_map(self, path: Path) -> str:
-        """Preparing the path of the inserted file for the includes map
-
-        :param path: The path to the Markdown file to be inserted
-
-        :returns: The path that will be used in the includes map
-        """
-        donor_path = None
-        if path.as_posix().startswith(self.working_dir.as_posix()):
-            _path = path.relative_to(self.working_dir)
-            donor_path = f"{self.src_dir}/{_path.as_posix()}"
-        elif path.as_posix().startswith(getcwd()):
-            _path = path.relative_to(getcwd())
-            if _path.as_posix().startswith(self.working_dir.as_posix()):
-                _path = _path.relative_to(self.working_dir)
-                if _path.as_posix().startswith(self.working_dir.as_posix()):
-                    donor_path = f"{self.src_dir}/{_path.relative_to(self.working_dir).as_posix()}"
-                else:
-                    donor_path = f"{self.src_dir}/{_path.as_posix()}"
-            else:
-                donor_path = _path.as_posix()
-        return donor_path
-
-    def _exist_in_includes_map(self, includes_map: list, path: str) -> bool:
-        """Is there a path on the includes map
-
-        :param map: Includes map
-        :param path: Path
-
-        :returns: True or False
-        """
-        for obj in includes_map:
-            if obj["file"] == path:
-                return True
-        return False
-
     def _find_anchors(self, content: str) -> list:
         """Search for anchor links in the text
 
@@ -1015,18 +977,16 @@ class Preprocessor(BasePreprocessor):
         :returns: A list with added anchors
         """
         anchors = self._find_anchors(content)
-        if len(anchors) > 0:
-            for anchor in anchors:
-                l.append(anchor)
+        if anchors:
+            l.extend(anchors)
         return l
 
     def clean_tokens(self, url: str) -> str:
         token_pattern = r"(https*://)(.*)@(.*)"
         s = url
         if self.enable_clean_tokens:
-            if re.search(str(token_pattern), str(url)):
-                s = re.sub(str(token_pattern), r"\1\3", str(url))
-
+            if re.search(token_pattern, str(url)):
+                s = re.sub(token_pattern, r"\1\3", str(url))
         return s
 
     def _prepare_path_for_includes_map(self, path: Path) -> str:
@@ -1046,8 +1006,8 @@ class Preprocessor(BasePreprocessor):
                 donor_path = _path.as_posix()
         return donor_path
 
-    def _exist_in_includes_map(self, map: list, path: str) -> bool:
-        for obj in map:
+    def _exist_in_includes_map(self, includes_map: list, path: str) -> bool:
+        for obj in includes_map:
             if obj["file"] == path:
                 return True
         return False
@@ -1430,18 +1390,18 @@ class Preprocessor(BasePreprocessor):
                         if recipient_md_path in self.chapters or "index.md" in recipient_md_path:
                             if not self._exist_in_includes_map(self.includes_map, recipient_md_path):
                                 if not self.includes_map_anchors or len(donor_anchors) == 0:
-                                    self.includes_map.append({ 'file': recipient_md_path, "includes": []})
+                                    self.includes_map.append({'file': recipient_md_path, "includes": []})
                                 else:
-                                    self.includes_map.append({ 'file': recipient_md_path, "includes": [], 'anchors': []})
+                                    self.includes_map.append({'file': recipient_md_path, "includes": [], 'anchors': []})
 
                             for i, f in enumerate(self.includes_map):
                                 if f['file'] == recipient_md_path:
                                     self.includes_map[i]['includes'].append(donor_md_path)
 
                                     if self.includes_map_anchors:
+                                        if 'anchors' not in self.includes_map[i]:
+                                            self.includes_map[i]['anchors'] = []
                                         for anchor in donor_anchors:
-                                            if not 'anchors' in self.includes_map[i]:
-                                                self.includes_map[i]['anchors'] = []
                                             if anchor not in self.includes_map[i]['anchors']:
                                                 self.includes_map[i]['anchors'].append(anchor)
 
@@ -1484,7 +1444,8 @@ class Preprocessor(BasePreprocessor):
         self.logger.info('Applying preprocessor')
 
         # Cleaning up downloads because the content of remote source may have modified
-        rmtree(self._downloaded_dir_path, ignore_errors=True)
+        if self._downloaded_dir_path.exists():
+            rmtree(self._downloaded_dir_path, ignore_errors=True)
 
         source_files_extensions = self._get_source_files_extensions()
 
