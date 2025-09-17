@@ -45,6 +45,8 @@ nosetests.xml
 coverage.xml
 *.cover
 .hypothesis/
+.includescache
+.error_link
 
 # Translations
 *.mo

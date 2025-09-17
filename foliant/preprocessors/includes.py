@@ -1,5 +1,6 @@
 import re
-import urllib
+import urllib.request
+import urllib.error
 from shutil import rmtree
 from io import StringIO
 from hashlib import md5
@@ -33,6 +34,7 @@ class Preprocessor(BasePreprocessor):
     )
 
     _image_pattern = re.compile(r'\!\[(?P<caption>.*?)\]\((?P<path>((?!:\/\/).)+?)\)')
+    _link_pattern = re.compile(r'\[(?P<text>.*?)\]\((?P<path>((?!:\/\/).)+?)\)')
 
     _tag_body_pattern = re.compile(
         r'(\$(?P<repo>[^\#^\$]+)(\#(?P<revision>[^\$]+))?\$)?' +
@@ -45,16 +47,46 @@ class Preprocessor(BasePreprocessor):
 
         self._cache_dir_path = self.project_path / self.options['cache_dir']
         self._downloaded_dir_path = self._cache_dir_path / '_downloaded_content'
-        self.src_dir = self.config.get("src_dir")
+        self.src_dir = self.config.get('src_dir')
+        self.tmp_dir = self.config.get('tmp_dir', '__folianttmp__')
+
         self.includes_map_enable = False
+        self.includes_map_anchors = False
         if 'includes_map' in self.options:
             self.includes_map_enable = True
+            if type(self.options['includes_map']) != bool and 'anchors' in self.options['includes_map']:
+                self.includes_map_anchors = True
+
         if self.includes_map_enable:
             self.includes_map = []
+            self.enable_clean_tokens = True
+
+        self.chapters = []
+        self.chapters_list(self.config["chapters"], self.chapters) # converting chapters to a list
 
         self.logger = self.logger.getChild('includes')
 
         self.logger.debug(f'Preprocessor inited: {self.__dict__}')
+
+    def chapters_list(self, obj, chapters: list) -> list:
+        '''Converting chapters to a list
+        :param config_chapters: Chapters from config
+        :param chapters: List of chapters
+        '''
+        if isinstance(obj, list):
+            for item in obj:
+                if isinstance(item, str):
+                    chapters.append(f"{self.src_dir}/{item}")
+                else:
+                    self.chapters_list(item, chapters)
+        elif isinstance(obj, Path):
+            chapters.append(f"{self.src_dir}/{obj.as_posix()}")
+        elif isinstance(obj, object):
+            for _, v in obj.items():
+                if isinstance(v, str):
+                    chapters.append(f"{self.src_dir}/{v}")
+                else:
+                    self.chapters_list(v, chapters)
 
     def _find_file(
             self,
@@ -152,8 +184,8 @@ class Preprocessor(BasePreprocessor):
 
                 # The beginning of the block codes for converting relative paths to links
                 dict_new_link = {}
-                regexp_find_link = re.compile('\[.+?\]\(.+?\)')
-                regexp_find_path = re.compile('\(.+?\)')
+                regexp_find_link = re.compile(r'\[.+?\]\(.+?\)')
+                regexp_find_path = re.compile(r'\(.+?\)')
 
                 old_found_link = regexp_find_link.findall(downloaded_content)
 
@@ -173,7 +205,6 @@ class Preprocessor(BasePreprocessor):
                 # End of the conversion code block
 
                 with open(downloaded_file_path, 'w', encoding='utf8') as downloaded_file:
-
                     downloaded_file.write(downloaded_content)
         else:
             self.logger.debug('File found in cache, it was already downloaded at this run')
@@ -559,6 +590,80 @@ class Preprocessor(BasePreprocessor):
 
         return self._image_pattern.sub(_sub, content)
 
+    def _adjust_links(
+            self,
+            content: str,
+            markdown_file_path: Path,
+            origin_file_path: Path
+    ) -> str:
+        '''Locate internal link referenced in a Markdown string and replace their paths
+        with the relative ones.
+
+        :param content: Markdown content
+        :param markdown_file_path: Path to the Markdown file containing the content
+
+        :returns: Markdown content with relative internal link paths
+        '''
+        def _resolve_link(link, root_path, depth_origin):
+            try:
+                resolved_link = (markdown_file_path.absolute().parent / Path(link)).resolve()
+                resolved_link = resolved_link.relative_to(root_path)
+                resolved_link = '../' * depth_origin + resolved_link.as_posix()
+                return resolved_link
+            except Exception as exception:
+                self.logger.debug(
+                    f'An error {exception} occurred when resolving the link: {link}'
+                )
+
+        def _sub(m):
+            caption = m.group('text')
+            link = m.group('path')
+            anchor = ''
+            link_array = m.group('path').split('#')
+            if len(link_array) > 1:
+                link = link_array[0]
+                anchor = f'#{link_array[1]}'
+            root_path = self.project_path.absolute() / self.tmp_dir
+            if not Path(link).is_absolute():
+                extension = Path(link).suffix
+                try:
+                    origin_rel = origin_file_path.relative_to(root_path)
+                    depth_origin = len(origin_rel.parts)
+                    depth_markdown_file = len(markdown_file_path.relative_to(root_path).parts)
+                    depth_difference = depth_origin - depth_markdown_file
+                    if extension == ".md":
+                        link = _resolve_link(link, root_path, depth_origin - 1)
+                    elif extension == "":
+                        if depth_origin >= depth_markdown_file:
+                            link = '../' * depth_difference + link
+                        else:
+                            link_split = link.split('/')
+                            if link_split[0] == '..':
+                                if link_split[-1] == '':
+                                    link_split = link_split[:-1]
+                                link_split = link_split[1:]
+                                link = f"{'/'.join(link_split)}.md"
+                                link = _resolve_link(link, root_path, depth_origin)
+                    if (
+                        depth_difference == 0
+                        ) and (
+                            Path(Path(link).name).with_suffix('').as_posix() == Path(origin_rel.name).with_suffix('').as_posix()
+                        ):
+                        link = ''
+                    self.logger.debug(
+                        f'Updating link reference; user specified path: {m.group("path")}, ' +
+                        f'absolute path: {link}'
+                    )
+                except Exception as exception:
+                    self.logger.debug(
+                        f'An error {exception} occurred when resolving the link: {m.group("path")}'
+                    )
+                    link = m.group('path')
+
+            return f'[{caption}]({link}{anchor})'
+
+        return self._link_pattern.sub(_sub, content)
+
     def _adjust_paths_in_tags_attributes(
             self,
             content: str,
@@ -669,7 +774,6 @@ class Preprocessor(BasePreprocessor):
 
         included_file_path = (current_processed_file_path.parent / user_specified_path).resolve()
 
-
         self.logger.debug(f'User-specified included file path: {included_file_path}')
 
         if (
@@ -708,8 +812,9 @@ class Preprocessor(BasePreprocessor):
             to_end: bool = False,
             sethead: int or None = None,
             nohead: bool = False,
-            include_link: str or None = None
-    ) -> str:
+            include_link: str or None = None,
+            origin_file_path: Path = None
+    ) -> (str, list):
         '''Replace a local include statement with the file content. Necessary
         adjustments are applied to the content: cut between certain headings,
         strip the top heading, set heading level.
@@ -734,10 +839,9 @@ class Preprocessor(BasePreprocessor):
             f'to heading: {to_heading}, sethead: {sethead}, nohead: {nohead}'
         )
 
+        anchors = []
 
-        if included_file_path.exists():
-            included_file_path = included_file_path
-        else:
+        if not included_file_path.exists():
             if self.options['allow_failure']:
                 self.logger.error(f'The url or repo_url link is not correct, file not found: {included_file_path}')
 
@@ -746,15 +850,16 @@ class Preprocessor(BasePreprocessor):
                 if not Path(path_error_link).exists():
                     Path(path_error_link).mkdir()
 
-                path_error_file = open(path_error_link/included_file_path.name, 'w+')
+                path_error_file = open(path_error_link/included_file_path.name, 'w+', encoding='utf8')
 
                 if self.options['stub_text']:
                     path_error_file.write(f'The url or repo_url link is not correct, file not found: {included_file_path}')
                 path_error_file.close()
 
-                included_file_path=path_error_link/included_file_path.name
+                included_file_path = path_error_link/included_file_path.name
             else:
-                self.logger.error(f'The url or repo_url link is not correct, file not found: {included_file_path}')   
+                self.logger.error(f'The url or repo_url link is not correct, file not found: {included_file_path}')
+                return '', anchors
 
         with open(included_file_path, encoding='utf8') as included_file:
             included_content = included_file.read()
@@ -762,8 +867,8 @@ class Preprocessor(BasePreprocessor):
             # The beginning of the block codes for converting relative paths to links
             if include_link:
                 dict_new_link = {}
-                regexp_find_link = re.compile('\[.+?\]\(.+?\)')
-                regexp_find_path = re.compile('\(.+?\)')
+                regexp_find_link = re.compile(r'\[.+?\]\(.+?\)')
+                regexp_find_path = re.compile(r'\(.+?\)')
 
                 old_found_link = regexp_find_link.findall(included_content)
 
@@ -783,10 +888,26 @@ class Preprocessor(BasePreprocessor):
                     included_content = included_content.replace(line, dict_new_link[line])
             # End of the conversion code block
 
+            # Removing metadata from content before including
+            included_content = remove_meta(included_content)
+            included_content = self._cut_from_position_to_position(
+                included_content,
+                from_heading,
+                to_heading,
+                from_id,
+                to_id,
+                to_end,
+                sethead,
+                nohead
+            )
+
+            # Find anchors
+            if self.includes_map_anchors:
+                anchors = self._add_anchors(anchors, included_content)
+
             if self.config.get('escape_code', False):
                 if isinstance(self.config['escape_code'], dict):
                     escapecode_options = self.config['escape_code'].get('options', {})
-
                 else:
                     escapecode_options = {}
 
@@ -803,22 +924,8 @@ class Preprocessor(BasePreprocessor):
                     escapecode_options
                 ).escape(included_content)
 
-            # Removing metadata from content before including
-
-            included_content = remove_meta(included_content)
-
-            included_content = self._cut_from_position_to_position(
-                included_content,
-                from_heading,
-                to_heading,
-                from_id,
-                to_id,
-                to_end,
-                sethead,
-                nohead
-            )
-
             included_content = self._adjust_image_paths(included_content, included_file_path)
+            included_content = self._adjust_links(included_content, included_file_path, origin_file_path)
 
             if project_root_path:
                 included_content = self._adjust_paths_in_tags_attributes(
@@ -839,7 +946,48 @@ class Preprocessor(BasePreprocessor):
                 included_file_path.parent
             )
 
-        return included_content
+        return included_content, anchors
+
+    def _find_anchors(self, content: str) -> list:
+        """Search for anchor links in the text
+
+        :param content: Markdown content
+
+        :returns: List of anchor links
+        """
+        anchors_list = []
+
+        anchors = re.findall(r'\<anchor\>([\-\_A-Za-z0-9]+)\<\/anchor\>', content)
+        for anchor in anchors:
+            anchors_list.append(anchor)
+        custom_ids = re.findall(r'\{\#([\-\_A-Za-z0-9]+)\}', content)
+        for anchor in custom_ids:
+            anchors_list.append(anchor)
+        elements_with_ids = re.findall(r'id\=[\"\']([\-\_A-Za-z0-9]+)[\"\']', content)
+        for anchor in elements_with_ids:
+            anchors_list.append(anchor)
+        return anchors_list
+
+    def _add_anchors(self, l: list, content: str) -> list:
+        """Add an anchor link to the list of anchor links
+
+        :param l: The original list
+        :param content: Markdown content
+
+        :returns: A list with added anchors
+        """
+        anchors = self._find_anchors(content)
+        if anchors:
+            l.extend(anchors)
+        return l
+
+    def clean_tokens(self, url: str) -> str:
+        token_pattern = r"(https*://)(.*)@(.*)"
+        s = url
+        if self.enable_clean_tokens:
+            if re.search(token_pattern, str(url)):
+                s = re.sub(token_pattern, r"\1\3", str(url))
+        return s
 
     def _prepare_path_for_includes_map(self, path: Path) -> str:
         donor_path = None
@@ -858,32 +1006,11 @@ class Preprocessor(BasePreprocessor):
                 donor_path = _path.as_posix()
         return donor_path
 
-    def _exist_in_includes_map(self, map: list, path: str) -> bool:
-        for obj in map:
+    def _exist_in_includes_map(self, includes_map: list, path: str) -> bool:
+        for obj in includes_map:
             if obj["file"] == path:
                 return True
         return False
-
-    def _find_anchors(self, content: str) -> list:
-        anchors_list = []
-
-        anchors = re.findall(r'\<anchor\>([\-\_A-Za-z0-9]+)\<\/anchor\>', content)
-        for anchor in anchors:
-            anchors_list.append(anchor)
-        custom_ids = re.findall(r'\{\#([\-A-Za-z0-9]+)\}', content)
-        for anchor in custom_ids:
-            anchors_list.append(anchor)
-        elements_with_ids = re.findall(r'id\=[\"\']([\-A-Za-z0-9]+)[\"\']', content)
-        for anchor in elements_with_ids:
-            anchors_list.append(anchor)
-        return anchors_list
-
-    def _add_anchors(self, l: list, content: str) -> list:
-        anchors = self._find_anchors(content)
-        if len(anchors) > 0:
-            for anchor in anchors:
-                l.append(anchor)
-        return l
 
     def process_includes(
             self,
@@ -957,25 +1084,27 @@ class Preprocessor(BasePreprocessor):
 
                     self.logger.debug(f'Set new current sethead: {current_sethead}')
 
-                # If the tag body is not empty, the legacy syntax is expected:
-                #
-                # <include project_root="..." sethead="..." nohead="..." inline="...">
-                # ($repo_url#revision$path|src)#from_heading:to_heading
-                # </include>
-                #
-                # If the tag body is empty, the new syntax is expected:
-                #
-                # <include
-                #     repo_url="..." revision="..." path="..." | url="..." | src="..."
-                #     project_root="..."
-                #     from_heading="..." to_heading="..."
-                #     from_id="..." to_id="..."
-                #     to_end="..."
-                #     sethead="..." nohead="..."
-                #     inline="..."
-                #     wrap_code="..."
-                #     code_language="..."
-                # ></include>
+                """
+                If the tag body is not empty, the legacy syntax is expected:
+
+                <include project_root="..." sethead="..." nohead="..." inline="...">
+                ($repo_url#revision$path|src)#from_heading:to_heading
+                </include>
+
+                If the tag body is empty, the new syntax is expected:
+
+                <include
+                    repo_url="..." revision="..." path="..." | url="..." | src="..."
+                    project_root="..."
+                    from_heading="..." to_heading="..."
+                    from_id="..." to_id="..."
+                    to_end="..."
+                    sethead="..." nohead="..."
+                    inline="..."
+                    wrap_code="..."
+                    code_language="..."
+                ></include>
+                """
 
                 if body:
                     self.logger.debug('Using the legacy syntax rules')
@@ -1016,8 +1145,8 @@ class Preprocessor(BasePreprocessor):
 
                         if self.includes_map_enable:
                             donor_md_path = included_file_path.as_posix()
+                            donor_md_path = self.clean_tokens(donor_md_path)
                             self.logger.debug(f'Set the repo URL of the included file to {recipient_md_path}: {donor_md_path} (1)')
-
                         if included_file_path.name.startswith('^'):
                             included_file_path = self._find_file(
                                 included_file_path.name[1:], included_file_path.parent
@@ -1031,14 +1160,18 @@ class Preprocessor(BasePreprocessor):
 
                         self.logger.debug(f'Set new current project root path: {current_project_root_path}')
 
-                        processed_content_part = self._process_include(
+                        processed_content_part, anchors = self._process_include(
                             included_file_path=included_file_path,
                             project_root_path=current_project_root_path,
                             from_heading=body.group('from_heading'),
                             to_heading=body.group('to_heading'),
                             sethead=current_sethead,
-                            nohead=options.get('nohead')
+                            nohead=options.get('nohead'),
+                            origin_file_path=markdown_file_path
                         )
+
+                        if self.includes_map_enable and self.includes_map_anchors:
+                            donor_anchors = donor_anchors + anchors
 
                     else:
                         self.logger.debug('Local file referenced')
@@ -1059,18 +1192,23 @@ class Preprocessor(BasePreprocessor):
 
                             self.logger.debug(f'Set new current project root path: {current_project_root_path}')
 
-                        processed_content_part = self._process_include(
+                        processed_content_part, anchors = self._process_include(
                             included_file_path=included_file_path,
                             project_root_path=current_project_root_path,
                             from_heading=body.group('from_heading'),
                             to_heading=body.group('to_heading'),
                             sethead=current_sethead,
-                            nohead=options.get('nohead')
+                            nohead=options.get('nohead'),
+                            origin_file_path=markdown_file_path
                         )
 
                         if self.includes_map_enable:
                             donor_md_path = self._prepare_path_for_includes_map(included_file_path)
+                            donor_md_path = self.clean_tokens(donor_md_path)
                             self.logger.debug(f'Set the path of the included file to {recipient_md_path}: {donor_md_path} (2)')
+
+                            if self.includes_map_enable and self.includes_map_anchors:
+                                donor_anchors = donor_anchors + anchors
 
                 else:  # if body is missing
                     self.logger.debug('Using the new syntax rules')
@@ -1095,7 +1233,7 @@ class Preprocessor(BasePreprocessor):
 
                         self.logger.debug(f'Set new current project root path: {current_project_root_path}')
 
-                        processed_content_part = self._process_include(
+                        processed_content_part, anchors = self._process_include(
                             included_file_path=included_file_path,
                             project_root_path=current_project_root_path,
                             from_heading=options.get('from_heading'),
@@ -1105,12 +1243,17 @@ class Preprocessor(BasePreprocessor):
                             to_end=options.get('to_end'),
                             sethead=current_sethead,
                             nohead=options.get('nohead'),
-                            include_link=include_link
+                            include_link=include_link,
+                            origin_file_path=markdown_file_path
                         )
 
                         if self.includes_map_enable:
                             donor_md_path = include_link + options.get('path')
+                            donor_md_path = self.clean_tokens(donor_md_path)
                             self.logger.debug(f'Set the link of the included file to {recipient_md_path}: {donor_md_path} (3)')
+
+                            if self.includes_map_enable and self.includes_map_anchors:
+                                donor_anchors = donor_anchors + anchors
 
                     elif options.get('url'):
                         self.logger.debug('File to get by URL referenced')
@@ -1126,7 +1269,7 @@ class Preprocessor(BasePreprocessor):
 
                             self.logger.debug(f'Set new current project root path: {current_project_root_path}')
 
-                        processed_content_part = self._process_include(
+                        processed_content_part, anchors = self._process_include(
                             included_file_path=included_file_path,
                             project_root_path=current_project_root_path,
                             from_heading=options.get('from_heading'),
@@ -1135,12 +1278,17 @@ class Preprocessor(BasePreprocessor):
                             to_id=options.get('to_id'),
                             to_end=options.get('to_end'),
                             sethead=current_sethead,
-                            nohead=options.get('nohead')
+                            nohead=options.get('nohead'),
+                            origin_file_path=markdown_file_path
                         )
 
                         if self.includes_map_enable:
                             donor_md_path = options['url']
+                            donor_md_path = self.clean_tokens(donor_md_path)
                             self.logger.debug(f'Set the URL of the included file to {recipient_md_path}: {donor_md_path} (4)')
+
+                            if self.includes_map_enable and self.includes_map_anchors:
+                                donor_anchors = donor_anchors + anchors
 
                     elif options.get('src'):
                         self.logger.debug('Local file referenced')
@@ -1159,7 +1307,7 @@ class Preprocessor(BasePreprocessor):
 
                             self.logger.debug(f'Set new current project root path: {current_project_root_path}')
 
-                        processed_content_part = self._process_include(
+                        processed_content_part, anchors = self._process_include(
                             included_file_path=included_file_path,
                             project_root_path=current_project_root_path,
                             from_heading=options.get('from_heading'),
@@ -1168,9 +1316,17 @@ class Preprocessor(BasePreprocessor):
                             to_id=options.get('to_id'),
                             to_end=options.get('to_end'),
                             sethead=current_sethead,
-                            nohead=options.get('nohead')
+                            nohead=options.get('nohead'),
+                            origin_file_path=markdown_file_path
                         )
 
+                        if self.includes_map_enable:
+                            donor_md_path = self._prepare_path_for_includes_map(included_file_path)
+                            donor_md_path = self.clean_tokens(donor_md_path)
+                            self.logger.debug(f'Set the path of the included file to {recipient_md_path}: {donor_md_path} (5)')
+
+                            if self.includes_map_enable and self.includes_map_anchors:
+                                donor_anchors = donor_anchors + anchors
                     else:
                         self.logger.warning(
                             'Neither repo_url+path nor src specified, ignoring the include statement'
@@ -1191,6 +1347,7 @@ class Preprocessor(BasePreprocessor):
                 wrap_code = options.get('wrap_code', '')
 
                 if wrap_code == 'triple_backticks' or wrap_code == 'triple_tildas':
+                    wrapper = ''
                     if wrap_code == 'triple_backticks':
                         self.logger.debug('Wrapping included content as fence code block with triple backticks')
 
@@ -1230,12 +1387,23 @@ class Preprocessor(BasePreprocessor):
 
                 if self.includes_map_enable:
                     if donor_md_path:
-                        if not self._exist_in_includes_map(self.includes_map, recipient_md_path):
-                            self.includes_map.append({ 'file': recipient_md_path, "includes": []})
+                        if recipient_md_path in self.chapters or "index.md" in recipient_md_path:
+                            if not self._exist_in_includes_map(self.includes_map, recipient_md_path):
+                                if not self.includes_map_anchors or len(donor_anchors) == 0:
+                                    self.includes_map.append({'file': recipient_md_path, "includes": []})
+                                else:
+                                    self.includes_map.append({'file': recipient_md_path, "includes": [], 'anchors': []})
 
-                        for i, f in enumerate(self.includes_map):
-                            if f['file'] == recipient_md_path:
-                                self.includes_map[i]['includes'].append(donor_md_path)
+                            for i, f in enumerate(self.includes_map):
+                                if f['file'] == recipient_md_path:
+                                    self.includes_map[i]['includes'].append(donor_md_path)
+
+                                    if self.includes_map_anchors:
+                                        if 'anchors' not in self.includes_map[i]:
+                                            self.includes_map[i]['anchors'] = []
+                                        for anchor in donor_anchors:
+                                            if anchor not in self.includes_map[i]['anchors']:
+                                                self.includes_map[i]['anchors'].append(anchor)
 
             else:
                 processed_content_part = content_part
@@ -1276,7 +1444,8 @@ class Preprocessor(BasePreprocessor):
         self.logger.info('Applying preprocessor')
 
         # Cleaning up downloads because the content of remote source may have modified
-        rmtree(self._downloaded_dir_path, ignore_errors=True)
+        if self._downloaded_dir_path.exists():
+            rmtree(self._downloaded_dir_path, ignore_errors=True)
 
         source_files_extensions = self._get_source_files_extensions()
 

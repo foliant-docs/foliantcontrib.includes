@@ -1,3 +1,9 @@
+# 1.1.19
+
+- Add: anchor link parsing for the includes map.
+- Add: adjust of links in the included content depending on parent file.
+- Fix: bugs.
+
 # 1.1.18
 
 - Add: option for generation of the includes map containing information about files inserted using the preprocessor.
