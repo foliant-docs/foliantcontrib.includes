@@ -368,7 +368,7 @@ not_build: true
         }
         expected_map = {
             'index.md': '# My title\n\nIncluded content 1',
-            'static/includes_map.json': "[{\"file\": \"__src__/not_build.md\", \"includes\": [\"__src__/sub/sub-2.md\"]}, {\"file\": \"__src__/index.md\", \"includes\": [\"__src__/sub/sub-1.md\"]}]",
+            'static/includes_map.json': "[{\"file\": \"__src__/index.md\", \"includes\": [\"__src__/sub/sub-1.md\"]}, {\"file\": \"__src__/not_build.md\", \"includes\": [\"__src__/sub/sub-2.md\"]}]",
             'not_build.md': """---
 not_build: true
 ---
@@ -402,11 +402,7 @@ not_build: true
         }
         expected_map = {
             'index.md': '# My title\n\n# Included 1 {#anchor1}\n\nContent 1\n\n<anchor>anchor2</anchor>',
-            'static/includes_map.json': (
-                "["
-                "{\"file\": \"__src__/not_build.md\", \"includes\": [\"__src__/sub/sub-2.md\"], \"anchors\": [\"anchor4\", \"anchor3\"]}, {\"file\": \"__src__/index.md\", \"includes\": [\"__src__/sub/sub-1.md\"], \"anchors\": [\"anchor2\", \"anchor1\"]}"
-                "]"
-            ),
+            'static/includes_map.json': "[{\"file\": \"__src__/index.md\", \"includes\": [\"__src__/sub/sub-1.md\"], \"anchors\": [\"anchor1\", \"anchor2\"]}, {\"file\": \"__src__/not_build.md\", \"includes\": [\"__src__/sub/sub-2.md\"], \"anchors\": [\"anchor3\", \"anchor4\"]}]",
             'not_build.md': """---
 not_build: true
 ---
@@ -440,7 +436,7 @@ not_build: true
         }
         expected_map = {
             'index.md': '# Main file\n\n# Not built file\n\n# Level 1\n\n# Level 2\n\nFinal content',
-            'static/includes_map.json': "[{\"file\": \"__src__/not_build.md\", \"includes\": [\"__src__/level1.md\"]}, {\"file\": \"__src__/index.md\", \"includes\": [\"__src__/not_build.md\"]}, {\"file\": \"__src__/level1.md\", \"includes\": [\"__src__/level2.md\"]}]",
+            'static/includes_map.json': "[{\"file\": \"__src__/index.md\", \"includes\": [\"__src__/not_build.md\"]}, {\"file\": \"__src__/level1.md\", \"includes\": [\"__src__/level2.md\"]}, {\"file\": \"__src__/not_build.md\", \"includes\": [\"__src__/level1.md\"]}]",
             'not_build.md': """---
 not_build: true
 ---
@@ -491,6 +487,9 @@ not_build: true
     def test_includes_map_empty_file_with_not_build(self):
         '''Test includes_map with empty file that has not_build: true.'''
         self.ptf.options = {'includes_map': True }
+        working_dir = self.ptf.context["project_path"].absolute()
+        tmp_dir= self.ptf.context["config"]["tmp_dir"]
+
         input_map = {
             'not_build.md': """---
 not_build: true
@@ -505,13 +504,13 @@ not_build: true
 
         expected_map = {
             'static/includes_map.json': "[{\"file\": \"__src__/not_build.md\", \"includes\": [\"__src__/non_existent.md\"]}]",
-            'not_build.md': """---
+            'not_build.md': f"""---
 not_build: true
 ---
 
 # Empty not built file
 
-The url or repo_url link is not correct, file not found: /app/__folianttmp__/non_existent.md""",
+The url or repo_url link is not correct, file not found: {working_dir}/{tmp_dir}/non_existent.md""",
         }
 
         self.ptf.test_preprocessor(

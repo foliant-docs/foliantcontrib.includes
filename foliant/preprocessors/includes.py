@@ -211,6 +211,7 @@ class Preprocessor(BasePreprocessor):
 
                 for line in dict_new_link:
                     downloaded_content = downloaded_content.replace(line, dict_new_link[line])
+                # End of the conversion code block
 
                 with open(downloaded_file_path, 'w', encoding='utf8') as downloaded_file:
                     downloaded_file.write(downloaded_content)
@@ -330,7 +331,7 @@ class Preprocessor(BasePreprocessor):
             if heading_level < result:
                 result = heading_level
 
-        self.logger.debug(f'Maximum heading level: {result}')
+            self.logger.debug(f'Maximum heading level: {result}')
 
         return result if result < float('inf') else 0
 
@@ -491,18 +492,15 @@ class Preprocessor(BasePreprocessor):
             )
 
             to_anchor_pattern = re.compile(
-                rf'(?:(?<!\<))\<anchor(?:\s(?:[^\<\>]*))?\>{re.escape(to_id)}<\/anchor\>',
-                flags=re.MULTILINE
+                rf'(?:(?<!\<))\<anchor(?:\s(?:[^\<\>]*))?\>{re.escape(to_id)}<\/anchor\>'
             )
 
-            if to_identified_heading_pattern.search(result):
+            if to_identified_heading_pattern.findall(result):
                 self.logger.debug('Ending heading with defined ID is found')
-                parts = to_identified_heading_pattern.split(result, maxsplit=1)
-                result = parts[0] if parts else ''
-            elif to_anchor_pattern.search(result):
+                result = to_identified_heading_pattern.split(result)[0]
+            elif to_anchor_pattern.findall(result):
                 self.logger.debug('Ending anchor with defined ID is found')
-                parts = to_anchor_pattern.split(result, maxsplit=1)
-                result = parts[0] if parts else ''
+                result = to_anchor_pattern.split(result)[0]
             else:
                 self.logger.debug('Neither ending heading nor ending anchor is found, cutting to the end')
 
@@ -1491,8 +1489,23 @@ class Preprocessor(BasePreprocessor):
         if self.includes_map_enable:
             output = f'{self.working_dir}/static/includes_map.json'
             Path(f'{self.working_dir}/static/').mkdir(parents=True, exist_ok=True)
+            def sort_includes_map(data):
+                if isinstance(data, list):
+                    # Sorting includes and anchors in each element
+                    for item in data:
+                        if isinstance(item, dict):
+                            if 'includes' in item and isinstance(item['includes'], list):
+                                item['includes'].sort()
+                            if 'anchors' in item and isinstance(item['anchors'], list):
+                                item['anchors'].sort()
+                    # Sorting the entire list by the 'file' field
+                    data.sort(key=lambda x: x.get('file', ''))
+                return data
+
+            sorted_includes_map = sort_includes_map(self.includes_map)
+
             with open(output, 'w', encoding='utf8') as f:
-                dump(self.includes_map, f)
+                dump(sorted_includes_map, f)
             self.logger.debug(f'includes_map written to {output}')
 
         self.logger.info('Preprocessor applied')
