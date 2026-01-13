@@ -350,3 +350,305 @@ class TestIncludesBasic(TestCase):
             input_mapping=input_map,
             expected_mapping=expected_map,
         )
+
+    def test_includes_map_with_not_build_file(self):
+        '''Test includes_map generation for files with not_build: true parameter.'''
+        self.ptf.options = {'includes_map': True }
+        input_map = {
+            'index.md': '# My title\n\n<include src="sub/sub-1.md"></include>',
+            'not_build.md': '# Not built file\n\n<include src="sub/sub-2.md"></include>',
+            'sub/sub-1.md': 'Included content 1',
+            'sub/sub-2.md': 'Included content 2'
+        }
+        expected_map = {
+            'index.md': '# My title\n\nIncluded content 1',
+            'static/includes_map.json': "[{\"file\": \"__src__/index.md\", \"includes\": [\"__src__/sub/sub-1.md\"]}, {\"file\": \"__src__/not_build.md\", \"includes\": [\"__src__/sub/sub-2.md\"]}]",
+            'not_build.md': '# Not built file\n\n<include src="sub/sub-2.md"></include>',
+            'sub/sub-1.md': 'Included content 1',
+            'sub/sub-2.md': 'Included content 2'
+        }
+
+        # We pretend that not_build.md has not_build: true in the metadata
+        # To do this, create a file with a frontmatter
+        not_build_content = """---
+not_build: true
+---
+
+# Not built file
+
+<include src="sub/sub-2.md"></include>"""
+
+        input_map['not_build.md'] = not_build_content
+
+        self.ptf.test_preprocessor(
+            input_mapping=input_map,
+            expected_mapping=expected_map,
+        )
+
+    def test_includes_map_with_anchors_and_not_build(self):
+        '''Test includes_map generation with anchors for files with not_build: true.'''
+        self.ptf.options = {'includes_map': {'anchors': True} }
+        input_map = {
+            'index.md': '# My title\n\n<include src="sub/sub-1.md"></include>',
+            'not_build.md': """---
+not_build: true
+---
+
+# Not built file
+
+<include src="sub/sub-2.md"></include>""",
+            'sub/sub-1.md': '# Included 1 {#anchor1}\n\nContent 1\n\n<anchor>anchor2</anchor>',
+            'sub/sub-2.md': '# Included 2 {#anchor3}\n\nContent 2\n\n<anchor>anchor4</anchor>'
+        }
+        expected_map = {
+            'index.md': '# My title\n\n# Included 1 {#anchor1}\n\nContent 1\n\n<anchor>anchor2</anchor>',
+            'static/includes_map.json': (
+                "["
+                "{\"file\": \"__src__/index.md\", \"includes\": [\"__src__/sub/sub-1.md\"], \"anchors\": [\"anchor1\", \"anchor2\"]}, "
+                "{\"file\": \"__src__/not_build.md\", \"includes\": [\"__src__/sub/sub-2.md\"], \"anchors\": [\"anchor3\", \"anchor4\"]}"
+                "]"
+            ),
+            'not_build.md': """---
+not_build: true
+---
+
+# Not built file
+
+<include src="sub/sub-2.md"></include>""",
+            'sub/sub-1.md': '# Included 1 {#anchor1}\n\nContent 1\n\n<anchor>anchor2</anchor>',
+            'sub/sub-2.md': '# Included 2 {#anchor3}\n\nContent 2\n\n<anchor>anchor4</anchor>'
+        }
+
+        self.ptf.test_preprocessor(
+            input_mapping=input_map,
+            expected_mapping=expected_map,
+        )
+
+    def test_recursive_includes_in_not_build_file(self):
+        '''Test recursive includes in files with not_build: true.'''
+        self.ptf.options = {'includes_map': True, 'recursive': True }
+        input_map = {
+            'index.md': '# Main file\n\n<include src="not_build.md"></include>',
+            'not_build.md': """---
+not_build: true
+---
+
+# Not built file
+
+<include src="level1.md"></include>""",
+            'level1.md': '# Level 1\n\n<include src="level2.md"></include>',
+            'level2.md': '# Level 2\n\nFinal content'
+        }
+        expected_map = {
+            'index.md': '# Main file\n\n# Not built file\n\n# Level 1\n\n# Level 2\n\nFinal content',
+            'static/includes_map.json': (
+                "["
+                "{\"file\": \"__src__/index.md\", \"includes\": [\"__src__/not_build.md\"]}, "
+                "{\"file\": \"__src__/not_build.md\", \"includes\": [\"__src__/level1.md\"]}"
+                "]"
+            ),
+            'not_build.md': """---
+not_build: true
+---
+
+# Not built file
+
+<include src="level1.md"></include>""",
+            'level1.md': '# Level 1\n\n# Level 2\n\nFinal content',
+            'level2.md': '# Level 2\n\nFinal content'
+        }
+
+        self.ptf.test_preprocessor(
+            input_mapping=input_map,
+            expected_mapping=expected_map,
+        )
+
+    def test_includes_map_with_repo_and_not_build(self):
+        '''Test includes_map generation for repository includes in not_build files.'''
+        self.ptf.options = {'includes_map': True }
+        input_map = {
+            'index.md': '# Main file\n\n<include src="not_build.md"></include>',
+            'not_build.md': """---
+not_build: true
+---
+
+# Not built file
+
+<include repo_url="https://github.com/foliant-docs/foliantcontrib.includes" path="test/data/basic/sub.md"></include>"""
+        }
+
+        # Creating local files to emulate downloaded content
+        # (in a real test, the preprocessor will do this)
+        import os
+        from unittest.mock import patch
+
+        # Patch methods to avoid real HTTP requests
+        with patch.object(urllib.request, 'urlopen') as mock_urlopen:
+            # Creating a mock response with the contents of the file
+            class MockResponse:
+                def read(self):
+                    return b'# Repository Content\n\nFrom repo'
+                def __enter__(self):
+                    return self
+                def __exit__(self, *args):
+                    pass
+                @property
+                def headers(self):
+                    return {'Content-Type': 'text/plain; charset=utf-8'}
+
+            mock_urlopen.return_value = MockResponse()
+
+            expected_map = {
+                'index.md': '# Main file\n\n# Not built file\n\n# Repository Content\n\nFrom repo',
+                'static/includes_map.json': (
+                    "["
+                    "{\"file\": \"__src__/index.md\", \"includes\": [\"__src__/not_build.md\"]}, "
+                    "{\"file\": \"__src__/not_build.md\", \"includes\": [\"https://github.com/foliant-docs/foliantcontrib.includes/tree/master/test/data/basic/sub.md\"]}"
+                    "]"
+                ),
+                'not_build.md': """---
+not_build: true
+---
+
+# Not built file
+
+<include repo_url="https://github.com/foliant-docs/foliantcontrib.includes" path="test/data/basic/sub.md"></include>"""
+            }
+
+            self.ptf.test_preprocessor(
+                input_mapping=input_map,
+                expected_mapping=expected_map,
+            )
+
+    def test_multiple_not_build_files_in_includes_map(self):
+        '''Test includes_map with multiple files that have not_build: true.'''
+        self.ptf.options = {'includes_map': True }
+        input_map = {
+            'index.md': '# Main\n\n<include src="docs/file1.md"></include>',
+            'docs/file1.md': '# Doc 1\n\n<include src="not_build1.md"></include>',
+            'docs/not_build1.md': """---
+not_build: true
+---
+
+# Not built 1
+
+Content 1""",
+            'docs/not_build2.md': """---
+not_build: true
+---
+
+# Not built 2
+
+Content 2""",
+            'ref/not_build3.md': """---
+not_build: true
+---
+
+# Not built 3
+
+<include src="../docs/file1.md"></include>"""
+        }
+
+        expected_map = {
+            'index.md': '# Main\n\n# Doc 1\n\n# Not built 1\n\nContent 1',
+            'static/includes_map.json': (
+                "["
+                "{\"file\": \"__src__/index.md\", \"includes\": [\"__src__/docs/file1.md\"]}, "
+                "{\"file\": \"__src__/docs/file1.md\", \"includes\": [\"__src__/docs/not_build1.md\"]}, "
+                "{\"file\": \"__src__/docs/not_build1.md\", \"includes\": []}, "
+                "{\"file\": \"__src__/docs/not_build2.md\", \"includes\": []}, "
+                "{\"file\": \"__src__/ref/not_build3.md\", \"includes\": [\"__src__/docs/file1.md\"]}"
+                "]"
+            ),
+            'docs/file1.md': '# Doc 1\n\n# Not built 1\n\nContent 1',
+            'docs/not_build1.md': """---
+not_build: true
+---
+
+# Not built 1
+
+Content 1""",
+            'docs/not_build2.md': """---
+not_build: true
+---
+
+# Not built 2
+
+Content 2""",
+            'ref/not_build3.md': """---
+not_build: true
+---
+
+# Not built 3
+
+<include src="../docs/file1.md"></include>"""
+        }
+
+        self.ptf.test_preprocessor(
+            input_mapping=input_map,
+            expected_mapping=expected_map,
+        )
+
+    def test_includes_map_with_from_to_in_not_build(self):
+        '''Test includes_map with from/to parameters in not_build files.'''
+        self.ptf.options = {'includes_map': True }
+        input_map = {
+            'not_build.md': """---
+not_build: true
+---
+
+# Not built file
+
+<include src="content.md" from_heading="Section 1" to_heading="Section 2"></include>""",
+            'content.md': '# Section 1\n\nContent 1\n\n# Section 2\n\nContent 2\n\n# Section 3\n\nContent 3'
+        }
+
+        expected_map = {
+            'static/includes_map.json': "[{\"file\": \"__src__/not_build.md\", \"includes\": [\"__src__/content.md\"]}]",
+            'not_build.md': """---
+not_build: true
+---
+
+# Not built file
+
+<include src="content.md" from_heading="Section 1" to_heading="Section 2"></include>""",
+            'content.md': '# Section 1\n\nContent 1\n\n# Section 2\n\nContent 2\n\n# Section 3\n\nContent 3'
+        }
+
+        self.ptf.test_preprocessor(
+            input_mapping=input_map,
+            expected_mapping=expected_map,
+        )
+
+    def test_includes_map_empty_file_with_not_build(self):
+        '''Test includes_map with empty file that has not_build: true.'''
+        self.ptf.options = {'includes_map': True }
+        input_map = {
+            'not_build.md': """---
+not_build: true
+---
+
+# Empty not built file
+
+<include src="non_existent.md"></include>""",
+        }
+
+        # With allow_failure=True, a stub file must be created.
+        self.ptf.options['allow_failure'] = True
+
+        expected_map = {
+            'static/includes_map.json': "[{\"file\": \"__src__/not_build.md\", \"includes\": [\"__src__/non_existent.md\"]}]",
+            'not_build.md': """---
+not_build: true
+---
+
+# Empty not built file
+
+<include src="non_existent.md"></include>""",
+            '.error_link/non_existent.md': 'The url or repo_url link is not correct, file not found: __project__/non_existent.md'
+        }
+
+        self.ptf.test_preprocessor(
+            input_mapping=input_map,
+            expected_mapping=expected_map,
+        )
