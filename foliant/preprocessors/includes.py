@@ -806,56 +806,6 @@ class Preprocessor(BasePreprocessor):
 
         return included_file_path
 
-    def _read_source_file_content(
-            self,
-            file_path: Path
-    ) -> str:
-        '''Read content from source file, handling both temporary and source directory paths.
-
-        :param file_path: Path to the file to read
-
-        :returns: File content as string
-        '''
-
-        self.logger.debug(f'Reading source file: {file_path}')
-
-        # If the file is located in a temporary directory, let's try to find the corresponding source file
-        if self.working_dir.resolve() in file_path.parents:
-            # This is a file in a temporary directory
-            try:
-                # Get the path to the source file
-                src_file_path = self._get_src_file_path(file_path)
-                self.logger.debug(f'Mapping temporary file to source file: {src_file_path}')
-
-                if src_file_path.exists():
-                    with open(src_file_path, encoding='utf8') as src_file:
-                        return src_file.read()
-                else:
-                    # If the source file is not found, we read from the temporary file
-                    self.logger.debug('Source file not found, reading from temporary file')
-                    if file_path.exists():
-                        with open(file_path, encoding='utf8') as temp_file:
-                            return temp_file.read()
-                    else:
-                        self.logger.warning(f'File not found: {file_path}')
-                        return ''
-            except Exception as e:
-                self.logger.debug(f'Error mapping to source file: {e}, reading from temporary file')
-                if file_path.exists():
-                    with open(file_path, encoding='utf8') as temp_file:
-                        return temp_file.read()
-                else:
-                    self.logger.warning(f'File not found: {file_path}')
-                    return ''
-        else:
-            # The file is not in the temporary directory, we read it directly
-            if file_path.exists():
-                with open(file_path, encoding='utf8') as src_file:
-                    return src_file.read()
-            else:
-                self.logger.warning(f'File not found: {file_path}')
-                return ''
-
     def _process_include(
             self,
             included_file_path: Path,
@@ -868,8 +818,7 @@ class Preprocessor(BasePreprocessor):
             sethead: int or None = None,
             nohead: bool = False,
             include_link: str or None = None,
-            origin_file_path: Path = None,
-            for_includes_map: bool = False
+            origin_file_path: Path = None
     ) -> (str, list):
         '''Replace a local include statement with the file content. Necessary
         adjustments are applied to the content: cut between certain headings,
@@ -888,91 +837,83 @@ class Preprocessor(BasePreprocessor):
         :param nohead: Flag that tells to strip the starting heading from the included content
         :param include_link: Link to the included file for URL includes
         :param origin_file_path: Path to the original file where include tag is located
-        :param for_includes_map: Flag indicating this is for includes_map generation only
 
         :returns: Tuple of (included file content, list of anchors)
         '''
 
         self.logger.debug(
             f'Included file path: {included_file_path}, from heading: {from_heading}, ' +
-            f'to heading: {to_heading}, sethead: {sethead}, nohead: {nohead}, ' +
-            f'for_includes_map: {for_includes_map}'
+            f'to heading: {to_heading}, sethead: {sethead}, nohead: {nohead}'
         )
 
         anchors = []
 
-        # To generate includes_map, we read files directly from the source directory
-        if for_includes_map:
-            included_content = self._read_source_file_content(included_file_path)
-        else:
-            if not included_file_path.exists():
-                if self.options['allow_failure']:
-                    self.logger.error(f'The url or repo_url link is not correct, file not found: {included_file_path}')
+        if not included_file_path.exists():
+            if self.options['allow_failure']:
+                self.logger.error(f'The url or repo_url link is not correct, file not found: {included_file_path}')
 
-                    path_error_link = Path(self.project_path / '.error_link').resolve()
+                path_error_link = Path(self.project_path / '.error_link').resolve()
 
-                    if not path_error_link.exists():
-                        path_error_link.mkdir(parents=True)
+                if not path_error_link.exists():
+                    path_error_link.mkdir(parents=True)
 
-                    path_error_file = path_error_link / included_file_path.name
-                    with open(path_error_file, 'w+', encoding='utf8') as f:
-                        if self.options['stub_text']:
-                            f.write(f'The url or repo_url link is not correct, file not found: {included_file_path}')
+                path_error_file = path_error_link / included_file_path.name
+                with open(path_error_file, 'w+', encoding='utf8') as f:
+                    if self.options['stub_text']:
+                        f.write(f'The url or repo_url link is not correct, file not found: {included_file_path}')
 
-                    included_file_path = path_error_file
-                else:
-                    self.logger.error(f'The url or repo_url link is not correct, file not found: {included_file_path}')
-                    return '', anchors
+                included_file_path = path_error_file
+            else:
+                self.logger.error(f'The url or repo_url link is not correct, file not found: {included_file_path}')
+                return '', anchors
 
-            with open(included_file_path, encoding='utf8') as included_file:
-                included_content = included_file.read()
+        with open(included_file_path, encoding='utf8') as included_file:
+            included_content = included_file.read()
 
-        # Convert relative paths to absolute links for URL includes
-        if include_link and not for_includes_map:
-            dict_new_link = {}
-            regexp_find_link = re.compile(r'\[.+?\]\(.+?\)')
-            regexp_find_path = re.compile(r'\(.+?\)')
+            # Convert relative paths to absolute links for URL includes
+            if include_link:
+                dict_new_link = {}
+                regexp_find_link = re.compile(r'\[.+?\]\(.+?\)')
+                regexp_find_path = re.compile(r'\(.+?\)')
 
-            old_found_link = regexp_find_link.findall(included_content)
+                old_found_link = regexp_find_link.findall(included_content)
 
-            for line in old_found_link:
-                relative_path = regexp_find_path.findall(line)
+                for line in old_found_link:
+                    relative_path = regexp_find_path.findall(line)
 
-                for ex_line in relative_path:
-                    exceptions_characters = re.findall(r'https?://[^\s]+|@|:|\.png|\.jpeg|\.svg', ex_line)
-                    if exceptions_characters:
-                        continue
-                    else:
-                        sub_relative_path = re.findall(r'\[.+?\]', line)
-                        if sub_relative_path and relative_path:
-                            dict_new_link[line] = (
-                                sub_relative_path[0] + '(' +
-                                include_link.rpartition('/')[0].replace('raw', 'blob') + '/' +
-                                relative_path[0].partition('(')[2]
-                            )
+                    for ex_line in relative_path:
+                        exceptions_characters = re.findall(r'https?://[^\s]+|@|:|\.png|\.jpeg|\.svg', ex_line)
+                        if exceptions_characters:
+                            continue
+                        else:
+                            sub_relative_path = re.findall(r'\[.+?\]', line)
+                            if sub_relative_path and relative_path:
+                                dict_new_link[line] = (
+                                    sub_relative_path[0] + '(' +
+                                    include_link.rpartition('/')[0].replace('raw', 'blob') + '/' +
+                                    relative_path[0].partition('(')[2]
+                                )
 
-            for line in dict_new_link:
-                included_content = included_content.replace(line, dict_new_link[line])
+                for line in dict_new_link:
+                    included_content = included_content.replace(line, dict_new_link[line])
 
-        # Removing metadata from content before including
-        included_content = remove_meta(included_content)
-        included_content = self._cut_from_position_to_position(
-            included_content,
-            from_heading,
-            to_heading,
-            from_id,
-            to_id,
-            to_end,
-            sethead,
-            nohead
-        )
+            # Removing metadata from content before including
+            included_content = remove_meta(included_content)
+            included_content = self._cut_from_position_to_position(
+                included_content,
+                from_heading,
+                to_heading,
+                from_id,
+                to_id,
+                to_end,
+                sethead,
+                nohead
+            )
 
-        # Find anchors
-        if self.includes_map_anchors:
-            anchors = self._add_anchors(anchors, included_content)
+            # Find anchors
+            if self.includes_map_anchors:
+                anchors = self._add_anchors(anchors, included_content)
 
-        # We do not apply additional processing for includes_map
-        if not for_includes_map:
             if self.config.get('escape_code', False):
                 if isinstance(self.config['escape_code'], dict):
                     escapecode_options = self.config['escape_code'].get('options', {})
@@ -1086,18 +1027,16 @@ class Preprocessor(BasePreprocessor):
             markdown_file_path: Path,
             content: str,
             project_root_path: Path or None = None,
-            sethead: int or None = None,
-            for_includes_map: bool = False
+            sethead: int or None = None
     ) -> str:
         '''Replace all include statements with the respective file contents.
 
         :param markdown_file_path: Path to currently processed Markdown file
         :param content: Markdown content
-        :param project_root_path: Path to the “root” directory of Foliant project
+        :param project_root_path: Path to the "root" directory of Foliant project
             that the currently processed Markdown file belongs to
         :param sethead: Level of the topmost heading in the content,
             it may be set when the method is called recursively
-        :param for_includes_map: Flag indicating this is for includes_map generation only
 
         :returns: Markdown content with resolved includes
         '''
@@ -1110,7 +1049,7 @@ class Preprocessor(BasePreprocessor):
 
         markdown_file_path = markdown_file_path.resolve()
 
-        self.logger.debug(f'Processing Markdown file: {markdown_file_path}, for_includes_map: {for_includes_map}')
+        self.logger.debug(f'Processing Markdown file: {markdown_file_path}')
 
         processed_content = ''
 
@@ -1204,14 +1143,8 @@ class Preprocessor(BasePreprocessor):
 
                         self.logger.debug(f'Repo URL: {repo_url}, revision: {revision}')
 
-                        # We are not synchronizing the repository for includes_map
-                        if not for_includes_map:
-                            repo_path = self._sync_repo(repo_url, revision)
-                            self.logger.debug(f'Local path of the repo: {repo_path}')
-                        else:
-                            # Creating a dummy path for includes_map
-                            repo_path = Path('/dummy/repo/path')
-                            self.logger.debug('Skipping repo sync for includes_map generation')
+                        repo_path = self._sync_repo(repo_url, revision)
+                        self.logger.debug(f'Local path of the repo: {repo_path}')
 
                         included_file_path = repo_path / body.group('path')
 
@@ -1221,11 +1154,9 @@ class Preprocessor(BasePreprocessor):
                             self.logger.debug(f'Set the repo URL of the included file to {recipient_md_path}: {donor_md_path} (1)')
 
                         if included_file_path.name.startswith('^'):
-                            # For includes_map, we don't search for files, just use the path
-                            if not for_includes_map:
-                                included_file_path = self._find_file(
-                                    included_file_path.name[1:], included_file_path.parent
-                                )
+                            included_file_path = self._find_file(
+                                included_file_path.name[1:], included_file_path.parent
+                            )
 
                         self.logger.debug(f'Resolved path to the included file: {included_file_path}')
 
@@ -1242,8 +1173,7 @@ class Preprocessor(BasePreprocessor):
                             to_heading=body.group('to_heading'),
                             sethead=current_sethead,
                             nohead=options.get('nohead'),
-                            origin_file_path=markdown_file_path,
-                            for_includes_map=for_includes_map
+                            origin_file_path=markdown_file_path
                         )
 
                         if self.includes_map_enable and self.includes_map_anchors:
@@ -1255,11 +1185,9 @@ class Preprocessor(BasePreprocessor):
                         included_file_path = self._get_included_file_path(body.group('path'), markdown_file_path)
 
                         if included_file_path.name.startswith('^'):
-                            # For includes_map, we don't search for files, just use the path
-                            if not for_includes_map:
-                                included_file_path = self._find_file(
-                                    included_file_path.name[1:], included_file_path.parent
-                                )
+                            included_file_path = self._find_file(
+                                included_file_path.name[1:], included_file_path.parent
+                            )
 
                         self.logger.debug(f'Resolved path to the included file: {included_file_path}')
 
@@ -1277,8 +1205,7 @@ class Preprocessor(BasePreprocessor):
                             to_heading=body.group('to_heading'),
                             sethead=current_sethead,
                             nohead=options.get('nohead'),
-                            origin_file_path=markdown_file_path,
-                            for_includes_map=for_includes_map
+                            origin_file_path=markdown_file_path
                         )
 
                         if self.includes_map_enable:
@@ -1295,14 +1222,8 @@ class Preprocessor(BasePreprocessor):
                     if options.get('repo_url') and options.get('path'):
                         self.logger.debug('File in Git repository referenced')
 
-                        # We are not synchronizing the repository for includes_map
-                        if not for_includes_map:
-                            repo_path = self._sync_repo(options.get('repo_url'), options.get('revision'))
-                            self.logger.debug(f'Local path of the repo: {repo_path}')
-                        else:
-                            # Creating a dummy path for includes_map
-                            repo_path = Path('/dummy/repo/path')
-                            self.logger.debug('Skipping repo sync for includes_map generation')
+                        repo_path = self._sync_repo(options.get('repo_url'), options.get('revision'))
+                        self.logger.debug(f'Local path of the repo: {repo_path}')
 
                         included_file_path = repo_path / options['path']
                         self.logger.debug(f'Resolved path to the included file: {included_file_path}')
@@ -1330,8 +1251,7 @@ class Preprocessor(BasePreprocessor):
                             sethead=current_sethead,
                             nohead=options.get('nohead'),
                             include_link=include_link,
-                            origin_file_path=markdown_file_path,
-                            for_includes_map=for_includes_map
+                            origin_file_path=markdown_file_path
                         )
 
                         if self.includes_map_enable:
@@ -1345,14 +1265,8 @@ class Preprocessor(BasePreprocessor):
                     elif options.get('url'):
                         self.logger.debug('File to get by URL referenced')
 
-                        # We don't download files for includes_map
-                        if not for_includes_map:
-                            included_file_path = self._download_file_from_url(options['url'])
-                            self.logger.debug(f'Resolved path to the included file: {included_file_path}')
-                        else:
-                            # Creating a dummy path for includes_map
-                            included_file_path = Path('/dummy/url/file')
-                            self.logger.debug('Skipping URL download for includes_map generation')
+                        included_file_path = self._download_file_from_url(options['url'])
+                        self.logger.debug(f'Resolved path to the included file: {included_file_path}')
 
                         if options.get('project_root'):
                             current_project_root_path = (
@@ -1371,8 +1285,7 @@ class Preprocessor(BasePreprocessor):
                             to_end=options.get('to_end'),
                             sethead=current_sethead,
                             nohead=options.get('nohead'),
-                            origin_file_path=markdown_file_path,
-                            for_includes_map=for_includes_map
+                            origin_file_path=markdown_file_path
                         )
 
                         if self.includes_map_enable:
@@ -1410,8 +1323,7 @@ class Preprocessor(BasePreprocessor):
                             to_end=options.get('to_end'),
                             sethead=current_sethead,
                             nohead=options.get('nohead'),
-                            origin_file_path=markdown_file_path,
-                            for_includes_map=for_includes_map
+                            origin_file_path=markdown_file_path
                         )
 
                         if self.includes_map_enable:
@@ -1427,15 +1339,14 @@ class Preprocessor(BasePreprocessor):
                         )
                         processed_content_part = ''
 
-                if self.options['recursive'] and self.pattern.search(processed_content_part) and not for_includes_map:
+                if self.options['recursive'] and self.pattern.search(processed_content_part):
                     self.logger.debug('Recursive call of include statements processing')
 
                     processed_content_part = self.process_includes(
                         included_file_path,
                         processed_content_part,
                         current_project_root_path,
-                        current_sethead,
-                        for_includes_map
+                        current_sethead
                     )
 
                 wrap_code = options.get('wrap_code', '')
@@ -1467,31 +1378,35 @@ class Preprocessor(BasePreprocessor):
                     self.logger.debug('Wrapping included content as inline code with single backticks')
                     processed_content_part = '`' + processed_content_part + '`'
 
-                if options.get('inline') and not for_includes_map:
+                if options.get('inline'):
                     self.logger.debug(
                         'Processing included content part as inline, multiple lines will be stretched into one'
                     )
                     processed_content_part = re.sub(r'\s+', ' ', processed_content_part).strip()
 
-                if self.includes_map_enable and donor_md_path:
-                    if recipient_md_path in self.chapters or "index.md" in recipient_md_path:
-                        if not self._exist_in_includes_map(self.includes_map, recipient_md_path):
-                            if not self.includes_map_anchors or len(donor_anchors) == 0:
-                                self.includes_map.append({'file': recipient_md_path, "includes": []})
-                            else:
-                                self.includes_map.append({'file': recipient_md_path, "includes": [], 'anchors': []})
+                if self.includes_map_enable:
+                    if donor_md_path:
+                        # Only add to includes_map if the recipient file is in chapters list
+                        if recipient_md_path in self.chapters or "index.md" in recipient_md_path:
+                            if not self._exist_in_includes_map(self.includes_map, recipient_md_path):
+                                if not self.includes_map_anchors or len(donor_anchors) == 0:
+                                    self.includes_map.append({'file': recipient_md_path, "includes": []})
+                                else:
+                                    self.includes_map.append({'file': recipient_md_path, "includes": [], 'anchors': []})
 
-                        for i, f in enumerate(self.includes_map):
-                            if f['file'] == recipient_md_path:
-                                if donor_md_path not in self.includes_map[i]['includes']:
-                                    self.includes_map[i]['includes'].append(donor_md_path)
+                            for i, f in enumerate(self.includes_map):
+                                if f['file'] == recipient_md_path:
+                                    if donor_md_path not in self.includes_map[i]['includes']:
+                                        self.includes_map[i]['includes'].append(donor_md_path)
 
-                                if self.includes_map_anchors:
-                                    if 'anchors' not in self.includes_map[i]:
-                                        self.includes_map[i]['anchors'] = []
-                                    for anchor in donor_anchors:
-                                        if anchor not in self.includes_map[i]['anchors']:
-                                            self.includes_map[i]['anchors'].append(anchor)
+                                    if self.includes_map_anchors:
+                                        if 'anchors' not in self.includes_map[i]:
+                                            self.includes_map[i]['anchors'] = []
+                                        for anchor in donor_anchors:
+                                            if anchor not in self.includes_map[i]['anchors']:
+                                                self.includes_map[i]['anchors'].append(anchor)
+                        else:
+                            self.logger.debug(f'File {recipient_md_path} is not in chapters, skipping includes_map')
 
             else:
                 processed_content_part = content_part
@@ -1522,12 +1437,13 @@ class Preprocessor(BasePreprocessor):
         if not md_involved:
             self.logger.warning(
                 "Markdown file extension 'md' is not mentioned in the extensions list! " +
-                "Didn’t you forget to put it there?"
+                "Didn't you forget to put it there?"
             )
 
         return source_files_extensions
 
     def apply(self):
+        """Apply the preprocessor to all source files."""
 
         self.logger.info('Applying preprocessor')
 
@@ -1537,6 +1453,25 @@ class Preprocessor(BasePreprocessor):
 
         source_files_extensions = self._get_source_files_extensions()
 
+        # First pass: collect includes_map for all files (even not_build ones)
+        if self.includes_map_enable:
+            self.logger.debug('First pass: collecting includes_map')
+            # We need to process all files to build includes_map
+            for source_files_extension in source_files_extensions:
+                for source_file_path in self.working_dir.rglob(source_files_extension):
+                    with open(source_file_path, encoding='utf8') as source_file:
+                        source_content = source_file.read()
+
+                    # Process includes just for includes_map collection
+                    # Don't write the result back yet
+                    self.process_includes(
+                        source_file_path,
+                        source_content,
+                        self.project_path.resolve()
+                    )
+
+        # Second pass: actually process files
+        self.logger.debug('Second pass: processing includes')
         for source_files_extension in source_files_extensions:
             for source_file_path in self.working_dir.rglob(source_files_extension):
                 with open(source_file_path, encoding='utf8') as source_file:
