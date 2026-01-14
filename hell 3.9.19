@@ -1,0 +1,378 @@
+[1mdiff --git a/foliant/preprocessors/includes.py b/foliant/preprocessors/includes.py[m
+[1mindex 9277324..26d6bc4 100644[m
+[1m--- a/foliant/preprocessors/includes.py[m
+[1m+++ b/foliant/preprocessors/includes.py[m
+[36m@@ -804,6 +804,130 @@[m [mclass Preprocessor(BasePreprocessor):[m
+ [m
+         return included_file_path[m
+ [m
+[32m+[m[32m    def _read_source_file_content([m
+[32m+[m[32m            self,[m
+[32m+[m[32m            file_path: Path[m
+[32m+[m[32m    ) -> str:[m
+[32m+[m[32m        '''Read content from source file, handling both temporary and source directory paths.[m
+[32m+[m[41m        [m
+[32m+[m[32m        :param file_path: Path to the file to read[m
+[32m+[m[41m        [m
+[32m+[m[32m        :returns: File content as string[m
+[32m+[m[32m        '''[m
+[32m+[m[41m        [m
+[32m+[m[32m        self.logger.debug(f'Reading source file: {file_path}')[m
+[32m+[m[41m        [m
+[32m+[m[32m        # If the file is located in a temporary directory, let's try to find the corresponding source file[m
+[32m+[m[32m        if self.working_dir.resolve() in file_path.parents:[m
+[32m+[m[32m            # This is a file in a temporary directory[m
+[32m+[m[32m            try:[m
+[32m+[m[32m                # Get the path to the source file[m
+[32m+[m[32m                src_file_path = self._get_src_file_path(file_path)[m
+[32m+[m[32m                self.logger.debug(f'Mapping temporary file to source file: {src_file_path}')[m
+[32m+[m[41m                [m
+[32m+[m[32m                if src_file_path.exists():[m
+[32m+[m[32m                    with open(src_file_path, encoding='utf8') as src_file:[m
+[32m+[m[32m                        return src_file.read()[m
+[32m+[m[32m                else:[m
+[32m+[m[32m                    # If the source file is not found, we read from the temporary file[m
+[32m+[m[32m                    self.logger.debug('Source file not found, reading from temporary file')[m
+[32m+[m[32m                    if file_path.exists():[m
+[32m+[m[32m                        with open(file_path, encoding='utf8') as temp_file:[m
+[32m+[m[32m                            return temp_file.read()[m
+[32m+[m[32m                    else:[m
+[32m+[m[32m                        self.logger.warning(f'File not found: {file_path}')[m
+[32m+[m[32m                        return ''[m
+[32m+[m[32m            except Exception as e:[m
+[32m+[m[32m                self.logger.debug(f'Error mapping to source file: {e}, reading from temporary file')[m
+[32m+[m[32m                if file_path.exists():[m
+[32m+[m[32m                    with open(file_path, encoding='utf8') as temp_file:[m
+[32m+[m[32m                        return temp_file.read()[m
+[32m+[m[32m                else:[m
+[32m+[m[32m                    self.logger.warning(f'File not found: {file_path}')[m
+[32m+[m[32m                    return ''[m
+[32m+[m[32m        else:[m
+[32m+[m[32m            # The file is not in the temporary directory, we read it directly[m
+[32m+[m[32m            if file_path.exists():[m
+[32m+[m[32m                with open(file_path, encoding='utf8') as src_file:[m
+[32m+[m[32m                    return src_file.read()[m
+[32m+[m[32m            else:[m
+[32m+[m[32m                self.logger.warning(f'File not found: {file_path}')[m
+[32m+[m[32m                return ''[m
+[32m+[m
+[32m+[m[32m    def _has_not_build_meta(self, content: str) -> bool:[m
+[32m+[m[32m        '''Check if content has not_build: true in front matter.[m
+[32m+[m[41m        [m
+[32m+[m[32m        :param content: File content[m
+[32m+[m[41m        [m
+[32m+[m[32m        :returns: True if file has not_build: true in metadata[m
+[32m+[m[32m        '''[m
+[32m+[m[32m        # Simple check for front matter with not_build: true[m
+[32m+[m[32m        front_matter_pattern = re.compile(r'^---\s*\n(.*?)\n---\s*\n', re.DOTALL | re.MULTILINE)[m
+[32m+[m[32m        match = front_matter_pattern.match(content)[m
+[32m+[m[41m        [m
+[32m+[m[32m        if match:[m
+[32m+[m[32m            front_matter = match.group(1)[m
+[32m+[m[32m            # Check for not_build: true[m
+[32m+[m[32m            not_build_pattern = re.compile(r'not_build\s*:\s*true', re.IGNORECASE)[m
+[32m+[m[32m            return bool(not_build_pattern.search(front_matter))[m
+[32m+[m[41m        [m
+[32m+[m[32m        return False[m
+[32m+[m
+[32m+[m[32m    def _process_include_for_includes_map([m
+[32m+[m[32m            self,[m
+[32m+[m[32m            included_file_path: Path,[m
+[32m+[m[32m            from_heading: str or None = None,[m
+[32m+[m[32m            to_heading: str or None = None,[m
+[32m+[m[32m            from_id: str or None = None,[m
+[32m+[m[32m            to_id: str or None = None,[m
+[32m+[m[32m            to_end: bool = False[m
+[32m+[m[32m    ) -> (str, list):[m
+[32m+[m[32m        '''Process include statement specifically for includes_map generation.[m
+[32m+[m[32m        Reads content from source files directly, not from temporary directory.[m
+[32m+[m[41m        [m
+[32m+[m[32m        :param included_file_path: Path to the included file[m
+[32m+[m[32m        :param from_heading: Include starting from this heading[m
+[32m+[m[32m        :param to_heading: Include up to this heading[m
+[32m+[m[32m        :param from_id: Include starting from the heading or the anchor that has this ID[m
+[32m+[m[32m        :param to_id: Include up to the heading or the anchor that has this ID[m
+[32m+[m[32m        :param to_end: Flag that tells to cut to the end of document[m
+[32m+[m[41m        [m
+[32m+[m[32m        :returns: Tuple of (included file content, list of anchors)[m
+[32m+[m[32m        '''[m
+[32m+[m[41m        [m
+[32m+[m[32m        self.logger.debug(f'Processing include for includes_map: {included_file_path}')[m
+[32m+[m[41m        [m
+[32m+[m[32m        anchors = [][m
+[32m+[m[41m        [m
+[32m+[m[32m        # Reading the contents of the file from the source directory[m
+[32m+[m[32m        content = self._read_source_file_content(included_file_path)[m
+[32m+[m[41m        [m
+[32m+[m[32m        if not content:[m
+[32m+[m[32m            return '', anchors[m
+[32m+[m[41m        [m
+[32m+[m[32m        # Check if the file has not_build: true[m
+[32m+[m[32m        if self._has_not_build_meta(content):[m
+[32m+[m[32m            self.logger.debug(f'File {included_file_path} has not_build: true, using original content')[m
+[32m+[m[41m        [m
+[32m+[m[32m        # Removing metadata from content[m
+[32m+[m[32m        content = remove_meta(content)[m
+[32m+[m[41m        [m
+[32m+[m[32m        # Cut content based on parameters[m
+[32m+[m[32m        content = self._cut_from_position_to_position([m
+[32m+[m[32m            content,[m
+[32m+[m[32m            from_heading,[m
+[32m+[m[32m            to_heading,[m
+[32m+[m[32m            from_id,[m
+[32m+[m[32m            to_id,[m
+[32m+[m[32m            to_end[m
+[32m+[m[32m        )[m
+[32m+[m[41m        [m
+[32m+[m[32m        # Find anchors[m
+[32m+[m[32m        if self.includes_map_anchors:[m
+[32m+[m[32m            anchors = self._add_anchors(anchors, content)[m
+[32m+[m[41m        [m
+[32m+[m[32m        return content, anchors[m
+[32m+[m
+     def _process_include([m
+             self,[m
+             included_file_path: Path,[m
+[36m@@ -1020,6 +1144,156 @@[m [mclass Preprocessor(BasePreprocessor):[m
+                 return True[m
+         return False[m
+ [m
+[32m+[m[32m    def process_includes_for_map([m
+[32m+[m[32m            self,[m
+[32m+[m[32m            markdown_file_path: Path,[m
+[32m+[m[32m            content: str,[m
+[32m+[m[32m            recipient_md_path: str[m
+[32m+[m[32m    ) -> None:[m
+[32m+[m[32m        '''Process includes specifically for includes_map generation.[m
+[32m+[m[32m        This method only collects includes information without modifying content.[m
+[32m+[m[41m        [m
+[32m+[m[32m        :param markdown_file_path: Path to currently processed Markdown file[m
+[32m+[m[32m        :param content: Markdown content[m
+[32m+[m[32m        :param recipient_md_path: Path to the file in source directory[m
+[32m+[m[32m        '''[m
+[32m+[m[41m        [m
+[32m+[m[32m        self.logger.debug(f'Processing includes for map: {markdown_file_path}')[m
+[32m+[m[41m        [m
+[32m+[m[32m        include_statement_pattern = re.compile([m
+[32m+[m[32m            rf'((?<!\<)\<(?:{"|".join(self.tags)})(?:\s[^\<\>]*)?\>.*?\<\/(?:{"|".join(self.tags)})\>)',[m
+[32m+[m[32m            flags=re.DOTALL[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        content_parts = include_statement_pattern.split(content)[m
+[32m+[m
+[32m+[m[32m        for content_part in content_parts:[m
+[32m+[m[32m            include_statement = self.pattern.fullmatch(content_part)[m
+[32m+[m
+[32m+[m[32m            if include_statement:[m
+[32m+[m[32m                donor_md_path = None[m
+[32m+[m[32m                donor_anchors = [][m
+[32m+[m
+[32m+[m[32m                body = self._tag_body_pattern.match(include_statement.group('body').strip())[m
+[32m+[m[32m                options = self.get_options(include_statement.group('options'))[m
+[32m+[m
+[32m+[m[32m                if body and body.group('path'):[m
+[32m+[m[32m                    if body.group('repo'):[m
+[32m+[m[32m                        # File in Git repository[m
+[32m+[m[32m                        repo_from_alias = self.options['aliases'].get(body.group('repo'))[m
+[32m+[m
+[32m+[m[32m                        revision = None[m
+[32m+[m
+[32m+[m[32m                        if repo_from_alias:[m
+[32m+[m[32m                            if '#' in repo_from_alias:[m
+[32m+[m[32m                                repo_url, revision = repo_from_alias.split('#', maxsplit=1)[m
+[32m+[m[32m                            else:[m
+[32m+[m[32m                                repo_url = repo_from_alias[m
+[32m+[m[32m                        else:[m
+[32m+[m[32m                            repo_url = body.group('repo')[m
+[32m+[m
+[32m+[m[32m                        if body.group('revision'):[m
+[32m+[m[32m                            revision = body.group('revision')[m
+[32m+[m
+[32m+[m[32m                        # Create link to repository file[m
+[32m+[m[32m                        include_link = self.create_full_link(repo_url, revision, body.group('path'))[m
+[32m+[m[32m                        donor_md_path = include_link + body.group('path')[m
+[32m+[m[32m                        donor_md_path = self.clean_tokens(donor_md_path)[m
+[32m+[m
+[32m+[m[32m                        # Process include for anchors[m
+[32m+[m[32m                        _, anchors = self._process_include_for_includes_map([m
+[32m+[m[32m                            included_file_path=Path('/dummy/path'),  # dummy path for repo files[m
+[32m+[m[32m                            from_heading=body.group('from_heading'),[m
+[32m+[m[32m                            to_heading=body.group('to_heading')[m
+[32m+[m[32m                        )[m
+[32m+[m[41m                        [m
+[32m+[m[32m                        if self.includes_map_anchors:[m
+[32m+[m[32m                            donor_anchors = donor_anchors + anchors[m
+[32m+[m
+[32m+[m[32m                    else:[m
+[32m+[m[32m                        # Local file[m
+[32m+[m[32m                        included_file_path = self._get_included_file_path(body.group('path'), markdown_file_path)[m
+[32m+[m[32m                        donor_md_path = self._prepare_path_for_includes_map(included_file_path)[m
+[32m+[m[32m                        donor_md_path = self.clean_tokens(donor_md_path)[m
+[32m+[m
+[32m+[m[32m                        # Process include for anchors (reading from source file)[m
+[32m+[m[32m                        _, anchors = self._process_include_for_includes_map([m
+[32m+[m[32m                            included_file_path=included_file_path,[m
+[32m+[m[32m                            from_heading=body.group('from_heading'),[m
+[32m+[m[32m                            to_heading=body.group('to_heading')[m
+[32m+[m[32m                        )[m
+[32m+[m[41m                        [m
+[32m+[m[32m                        if self.includes_map_anchors:[m
+[32m+[m[32m                            donor_anchors = donor_anchors + anchors[m
+[32m+[m
+[32m+[m[32m                else:  # if body is missing or empty[m
+[32m+[m[32m                    if options.get('repo_url') and options.get('path'):[m
+[32m+[m[32m                        # File in Git repository[m
+[32m+[m[32m                        include_link = self.create_full_link([m
+[32m+[m[32m                            options.get('repo_url'),[m[41m [m
+[32m+[m[32m                            options.get('revision'),[m
+[32m+[m[32m                            options.get('path')[m
+[32m+[m[32m                        )[m
+[32m+[m[32m                        donor_md_path = include_link + options.get('path')[m
+[32m+[m[32m                        donor_md_path = self.clean_tokens(donor_md_path)[m
+[32m+[m
+[32m+[m[32m                        # Process include for anchors[m
+[32m+[m[32m                        _, anchors = self._process_include_for_includes_map([m
+[32m+[m[32m                            included_file_path=Path('/dummy/path'),  # dummy path for repo files[m
+[32m+[m[32m                            from_heading=options.get('from_heading'),[m
+[32m+[m[32m                            to_heading=options.get('to_heading'),[m
+[32m+[m[32m                            from_id=options.get('from_id'),[m
+[32m+[m[32m                            to_id=options.get('to_id'),[m
+[32m+[m[32m                            to_end=options.get('to_end')[m
+[32m+[m[32m                        )[m
+[32m+[m[41m                        [m
+[32m+[m[32m                        if self.includes_map_anchors:[m
+[32m+[m[32m                            donor_anchors = donor_anchors + anchors[m
+[32m+[m
+[32m+[m[32m                    elif options.get('url'):[m
+[32m+[m[32m                        # File from URL[m
+[32m+[m[32m                        donor_md_path = options['url'][m
+[32m+[m[32m                        donor_md_path = self.clean_tokens(donor_md_path)[m
+[32m+[m
+[32m+[m[32m                    elif options.get('src'):[m
+[32m+[m[32m                        # Local file[m
+[32m+[m[32m                        included_file_path = self._get_included_file_path(options.get('src'), markdown_file_path)[m
+[32m+[m[32m                        donor_md_path = self._prepare_path_for_includes_map(included_file_path)[m
+[32m+[m[32m                        donor_md_path = self.clean_tokens(donor_md_path)[m
+[32m+[m
+[32m+[m[32m                        # Process include for anchors (reading from source file)[m
+[32m+[m[32m                        _, anchors = self._process_include_for_includes_map([m
+[32m+[m[32m                            included_file_path=included_file_path,[m
+[32m+[m[32m                            from_heading=options.get('from_heading'),[m
+[32m+[m[32m                            to_heading=options.get('to_heading'),[m
+[32m+[m[32m                            from_id=options.get('from_id'),[m
+[32m+[m[32m                            to_id=options.get('to_id'),[m
+[32m+[m[32m                            to_end=options.get('to_end')[m
+[32m+[m[32m                        )[m
+[32m+[m[41m                        [m
+[32m+[m[32m                        if self.includes_map_anchors:[m
+[32m+[m[32m                            donor_anchors = donor_anchors + anchors[m
+[32m+[m
+[32m+[m[32m                # Add to includes_map[m
+[32m+[m[32m                if donor_md_path and (recipient_md_path in self.chapters or "index.md" in recipient_md_path):[m
+[32m+[m[32m                    if not self._exist_in_includes_map(self.includes_map, recipient_md_path):[m
+[32m+[m[32m                        if not self.includes_map_anchors or len(donor_anchors) == 0:[m
+[32m+[m[32m                            self.includes_map.append({'file': recipient_md_path, "includes": []})[m
+[32m+[m[32m                        else:[m
+[32m+[m[32m                            self.includes_map.append({'file': recipient_md_path, "includes": [], 'anchors': []})[m
+[32m+[m
+[32m+[m[32m                    for i, f in enumerate(self.includes_map):[m
+[32m+[m[32m                        if f['file'] == recipient_md_path:[m
+[32m+[m[32m                            if donor_md_path not in self.includes_map[i]['includes']:[m
+[32m+[m[32m                                self.includes_map[i]['includes'].append(donor_md_path)[m
+[32m+[m
+[32m+[m[32m                            if self.includes_map_anchors:[m
+[32m+[m[32m                                if 'anchors' not in self.includes_map[i]:[m
+[32m+[m[32m                                    self.includes_map[i]['anchors'] = [][m
+[32m+[m[32m                                for anchor in donor_anchors:[m
+[32m+[m[32m                                    if anchor not in self.includes_map[i]['anchors']:[m
+[32m+[m[32m                                        self.includes_map[i]['anchors'].append(anchor)[m
+[32m+[m
+     def process_includes([m
+             self,[m
+             markdown_file_path: Path,[m
+[36m@@ -1147,7 +1421,8 @@[m [mclass Preprocessor(BasePreprocessor):[m
+                         included_file_path = repo_path / body.group('path')[m
+ [m
+                         if self.includes_map_enable:[m
+[31m-                            donor_md_path = included_file_path.as_posix()[m
+[32m+[m[32m                            include_link = self.create_full_link(repo_url, revision, body.group('path'))[m
+[32m+[m[32m                            donor_md_path = include_link + body.group('path')[m
+                             donor_md_path = self.clean_tokens(donor_md_path)[m
+                             self.logger.debug(f'Set the repo URL of the included file to {recipient_md_path}: {donor_md_path} (1)')[m
+ [m
+[36m@@ -1451,25 +1726,36 @@[m [mclass Preprocessor(BasePreprocessor):[m
+ [m
+         source_files_extensions = self._get_source_files_extensions()[m
+ [m
+[31m-        # First pass: collect includes_map for all files (even not_build ones)[m
+[32m+[m[32m        # First pass: collect includes_map for all files from source directory[m
+         if self.includes_map_enable:[m
+[31m-            self.logger.debug('First pass: collecting includes_map')[m
+[31m-            # We need to process all files to build includes_map[m
+[32m+[m[32m            self.logger.debug('First pass: collecting includes_map from source files')[m
+[32m+[m[41m            [m
+[32m+[m[32m            # Process source directory files for includes_map[m
+[32m+[m[32m            src_dir_path = self.project_path / self.src_dir[m
+             for source_files_extension in source_files_extensions:[m
+[31m-                for source_file_path in self.working_dir.rglob(source_files_extension):[m
+[32m+[m[32m                for source_file_path in src_dir_path.rglob(source_files_extension):[m
+[32m+[m[32m                    # Get relative path from src_dir[m
+[32m+[m[32m                    rel_path = source_file_path.relative_to(src_dir_path)[m
+[32m+[m[41m                    [m
+[32m+[m[32m                    # Check if this file is in the working directory (copied)[m
+[32m+[m[32m                    working_file_path = self.working_dir / rel_path[m
+[32m+[m[41m                    [m
+[32m+[m[32m                    # Read content from source file[m
+                     with open(source_file_path, encoding='utf8') as source_file:[m
+                         source_content = source_file.read()[m
+[31m-[m
+[31m-                    # Process includes just for includes_map collection[m
+[31m-                    # Don't write the result back yet[m
+[31m-                    self.process_includes([m
+[32m+[m[41m                    [m
+[32m+[m[32m                    # Determine recipient path for includes_map[m
+[32m+[m[32m                    recipient_md_path = f'{self.src_dir}/{rel_path.as_posix()}'[m
+[32m+[m[41m                    [m
+[32m+[m[32m                    # Process includes for map collection[m
+[32m+[m[32m                    self.process_includes_for_map([m
+                         source_file_path,[m
+                         source_content,[m
+[31m-                        self.project_path.resolve()[m
+[32m+[m[32m                        recipient_md_path[m
+                     )[m
+ [m
+[31m-        # Second pass: actually process files[m
+[31m-        self.logger.debug('Second pass: processing includes')[m
+[32m+[m[32m        # Second pass: process files in working directory[m
+[32m+[m[32m        self.logger.debug('Second pass: processing includes in working directory')[m
+         for source_files_extension in source_files_extensions:[m
+             for source_file_path in self.working_dir.rglob(source_files_extension):[m
+                 with open(source_file_path, encoding='utf8') as source_file:[m
+[36m@@ -1485,23 +1771,23 @@[m [mclass Preprocessor(BasePreprocessor):[m
+                     with open(source_file_path, 'w', encoding='utf8') as processed_file:[m
+                         processed_file.write(processed_content)[m
+ [m
+[31m-        # Write includes map[m
+[32m+[m[32m        # Write includes map (sort data for consistent output)[m
+         if self.includes_map_enable:[m
+             output = f'{self.working_dir}/static/includes_map.json'[m
+             Path(f'{self.working_dir}/static/').mkdir(parents=True, exist_ok=True)[m
+[32m+[m[41m            [m
+[32m+[m[32m            # Sort includes_map for consistent output[m
+             def sort_includes_map(data):[m
+                 if isinstance(data, list):[m
+[31m-                    # Sorting includes and anchors in each element[m
+                     for item in data:[m
+                         if isinstance(item, dict):[m
+                             if 'includes' in item and isinstance(item['includes'], list):[m
+                                 item['includes'].sort()[m
+                             if 'anchors' in item and isinstance(item['anchors'], list):[m
+                                 item['anchors'].sort()[m
+[31m-                    # Sorting the entire list by the 'file' field[m
+                     data.sort(key=lambda x: x.get('file', ''))[m
+                 return data[m
+[31m-[m
+[32m+[m[41m            [m
+             sorted_includes_map = sort_includes_map(self.includes_map)[m
+ [m
+             with open(output, 'w', encoding='utf8') as f:[m

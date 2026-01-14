@@ -804,6 +804,130 @@ class Preprocessor(BasePreprocessor):
 
         return included_file_path
 
+    def _read_source_file_content(
+            self,
+            file_path: Path
+    ) -> str:
+        '''Read content from source file, handling both temporary and source directory paths.
+
+        :param file_path: Path to the file to read
+
+        :returns: File content as string
+        '''
+
+        self.logger.debug(f'Reading source file: {file_path}')
+
+        # If the file is located in a temporary directory, let's try to find the corresponding source file
+        if self.working_dir.resolve() in file_path.parents:
+            # This is a file in a temporary directory
+            try:
+                # Get the path to the source file
+                src_file_path = self._get_src_file_path(file_path)
+                self.logger.debug(f'Mapping temporary file to source file: {src_file_path}')
+
+                if src_file_path.exists():
+                    with open(src_file_path, encoding='utf8') as src_file:
+                        return src_file.read()
+                else:
+                    # If the source file is not found, we read from the temporary file
+                    self.logger.debug('Source file not found, reading from temporary file')
+                    if file_path.exists():
+                        with open(file_path, encoding='utf8') as temp_file:
+                            return temp_file.read()
+                    else:
+                        self.logger.warning(f'File not found: {file_path}')
+                        return ''
+            except Exception as e:
+                self.logger.debug(f'Error mapping to source file: {e}, reading from temporary file')
+                if file_path.exists():
+                    with open(file_path, encoding='utf8') as temp_file:
+                        return temp_file.read()
+                else:
+                    self.logger.warning(f'File not found: {file_path}')
+                    return ''
+        else:
+            # The file is not in the temporary directory, we read it directly
+            if file_path.exists():
+                with open(file_path, encoding='utf8') as src_file:
+                    return src_file.read()
+            else:
+                self.logger.warning(f'File not found: {file_path}')
+                return ''
+
+    def _has_not_build_meta(self, content: str) -> bool:
+        '''Check if content has not_build: true in front matter.
+
+        :param content: File content
+
+        :returns: True if file has not_build: true in metadata
+        '''
+        # Simple check for front matter with not_build: true
+        front_matter_pattern = re.compile(r'^---\s*\n(.*?)\n---\s*\n', re.DOTALL | re.MULTILINE)
+        match = front_matter_pattern.match(content)
+
+        if match:
+            front_matter = match.group(1)
+            # Check for not_build: true
+            not_build_pattern = re.compile(r'not_build\s*:\s*true', re.IGNORECASE)
+            return bool(not_build_pattern.search(front_matter))
+
+        return False
+
+    def _process_include_for_includes_map(
+            self,
+            included_file_path: Path,
+            from_heading: str or None = None,
+            to_heading: str or None = None,
+            from_id: str or None = None,
+            to_id: str or None = None,
+            to_end: bool = False
+    ) -> (str, list):
+        '''Process include statement specifically for includes_map generation.
+        Reads content from source files directly, not from temporary directory.
+
+        :param included_file_path: Path to the included file
+        :param from_heading: Include starting from this heading
+        :param to_heading: Include up to this heading
+        :param from_id: Include starting from the heading or the anchor that has this ID
+        :param to_id: Include up to the heading or the anchor that has this ID
+        :param to_end: Flag that tells to cut to the end of document
+
+        :returns: Tuple of (included file content, list of anchors)
+        '''
+
+        self.logger.debug(f'Processing include for includes_map: {included_file_path}')
+
+        anchors = []
+
+        # Reading the contents of the file from the source directory
+        content = self._read_source_file_content(included_file_path)
+
+        if not content:
+            return '', anchors
+
+        # Check if the file has not_build: true
+        if self._has_not_build_meta(content):
+            self.logger.debug(f'File {included_file_path} has not_build: true, using original content')
+
+        # Removing metadata from content
+        content = remove_meta(content)
+
+        # Cut content based on parameters
+        content = self._cut_from_position_to_position(
+            content,
+            from_heading,
+            to_heading,
+            from_id,
+            to_id,
+            to_end
+        )
+
+        # Find anchors
+        if self.includes_map_anchors:
+            anchors = self._add_anchors(anchors, content)
+
+        return content, anchors
+
     def _process_include(
             self,
             included_file_path: Path,
@@ -1020,6 +1144,156 @@ class Preprocessor(BasePreprocessor):
                 return True
         return False
 
+    def process_includes_for_map(
+            self,
+            markdown_file_path: Path,
+            content: str,
+            recipient_md_path: str
+    ) -> None:
+        '''Process includes specifically for includes_map generation.
+        This method only collects includes information without modifying content.
+
+        :param markdown_file_path: Path to currently processed Markdown file
+        :param content: Markdown content
+        :param recipient_md_path: Path to the file in source directory
+        '''
+
+        self.logger.debug(f'Processing includes for map: {markdown_file_path}')
+
+        include_statement_pattern = re.compile(
+            rf'((?<!\<)\<(?:{"|".join(self.tags)})(?:\s[^\<\>]*)?\>.*?\<\/(?:{"|".join(self.tags)})\>)',
+            flags=re.DOTALL
+        )
+
+        content_parts = include_statement_pattern.split(content)
+
+        for content_part in content_parts:
+            include_statement = self.pattern.fullmatch(content_part)
+
+            if include_statement:
+                donor_md_path = None
+                donor_anchors = []
+
+                body = self._tag_body_pattern.match(include_statement.group('body').strip())
+                options = self.get_options(include_statement.group('options'))
+
+                if body and body.group('path'):
+                    if body.group('repo'):
+                        # File in Git repository
+                        repo_from_alias = self.options['aliases'].get(body.group('repo'))
+
+                        revision = None
+
+                        if repo_from_alias:
+                            if '#' in repo_from_alias:
+                                repo_url, revision = repo_from_alias.split('#', maxsplit=1)
+                            else:
+                                repo_url = repo_from_alias
+                        else:
+                            repo_url = body.group('repo')
+
+                        if body.group('revision'):
+                            revision = body.group('revision')
+
+                        # Create link to repository file
+                        include_link = self.create_full_link(repo_url, revision, body.group('path'))
+                        donor_md_path = include_link + body.group('path')
+                        donor_md_path = self.clean_tokens(donor_md_path)
+
+                        # Process include for anchors
+                        _, anchors = self._process_include_for_includes_map(
+                            included_file_path=Path('/dummy/path'),  # dummy path for repo files
+                            from_heading=body.group('from_heading'),
+                            to_heading=body.group('to_heading')
+                        )
+
+                        if self.includes_map_anchors:
+                            donor_anchors = donor_anchors + anchors
+
+                    else:
+                        # Local file
+                        included_file_path = self._get_included_file_path(body.group('path'), markdown_file_path)
+                        donor_md_path = self._prepare_path_for_includes_map(included_file_path)
+                        donor_md_path = self.clean_tokens(donor_md_path)
+
+                        # Process include for anchors (reading from source file)
+                        _, anchors = self._process_include_for_includes_map(
+                            included_file_path=included_file_path,
+                            from_heading=body.group('from_heading'),
+                            to_heading=body.group('to_heading')
+                        )
+
+                        if self.includes_map_anchors:
+                            donor_anchors = donor_anchors + anchors
+
+                else:  # if body is missing or empty
+                    if options.get('repo_url') and options.get('path'):
+                        # File in Git repository
+                        include_link = self.create_full_link(
+                            options.get('repo_url'),
+                            options.get('revision'),
+                            options.get('path')
+                        )
+                        donor_md_path = include_link + options.get('path')
+                        donor_md_path = self.clean_tokens(donor_md_path)
+
+                        # Process include for anchors
+                        _, anchors = self._process_include_for_includes_map(
+                            included_file_path=Path('/dummy/path'),  # dummy path for repo files
+                            from_heading=options.get('from_heading'),
+                            to_heading=options.get('to_heading'),
+                            from_id=options.get('from_id'),
+                            to_id=options.get('to_id'),
+                            to_end=options.get('to_end')
+                        )
+
+                        if self.includes_map_anchors:
+                            donor_anchors = donor_anchors + anchors
+
+                    elif options.get('url'):
+                        # File from URL
+                        donor_md_path = options['url']
+                        donor_md_path = self.clean_tokens(donor_md_path)
+
+                    elif options.get('src'):
+                        # Local file
+                        included_file_path = self._get_included_file_path(options.get('src'), markdown_file_path)
+                        donor_md_path = self._prepare_path_for_includes_map(included_file_path)
+                        donor_md_path = self.clean_tokens(donor_md_path)
+
+                        # Process include for anchors (reading from source file)
+                        _, anchors = self._process_include_for_includes_map(
+                            included_file_path=included_file_path,
+                            from_heading=options.get('from_heading'),
+                            to_heading=options.get('to_heading'),
+                            from_id=options.get('from_id'),
+                            to_id=options.get('to_id'),
+                            to_end=options.get('to_end')
+                        )
+
+                        if self.includes_map_anchors:
+                            donor_anchors = donor_anchors + anchors
+
+                # Add to includes_map
+                if donor_md_path and (recipient_md_path in self.chapters or "index.md" in recipient_md_path):
+                    if not self._exist_in_includes_map(self.includes_map, recipient_md_path):
+                        if not self.includes_map_anchors or len(donor_anchors) == 0:
+                            self.includes_map.append({'file': recipient_md_path, "includes": []})
+                        else:
+                            self.includes_map.append({'file': recipient_md_path, "includes": [], 'anchors': []})
+
+                    for i, f in enumerate(self.includes_map):
+                        if f['file'] == recipient_md_path:
+                            if donor_md_path not in self.includes_map[i]['includes']:
+                                self.includes_map[i]['includes'].append(donor_md_path)
+
+                            if self.includes_map_anchors:
+                                if 'anchors' not in self.includes_map[i]:
+                                    self.includes_map[i]['anchors'] = []
+                                for anchor in donor_anchors:
+                                    if anchor not in self.includes_map[i]['anchors']:
+                                        self.includes_map[i]['anchors'].append(anchor)
+
     def process_includes(
             self,
             markdown_file_path: Path,
@@ -1147,7 +1421,8 @@ class Preprocessor(BasePreprocessor):
                         included_file_path = repo_path / body.group('path')
 
                         if self.includes_map_enable:
-                            donor_md_path = included_file_path.as_posix()
+                            include_link = self.create_full_link(repo_url, revision, body.group('path'))
+                            donor_md_path = include_link + body.group('path')
                             donor_md_path = self.clean_tokens(donor_md_path)
                             self.logger.debug(f'Set the repo URL of the included file to {recipient_md_path}: {donor_md_path} (1)')
 
@@ -1451,25 +1726,36 @@ class Preprocessor(BasePreprocessor):
 
         source_files_extensions = self._get_source_files_extensions()
 
-        # First pass: collect includes_map for all files (even not_build ones)
+        # First pass: collect includes_map for all files from source directory
         if self.includes_map_enable:
-            self.logger.debug('First pass: collecting includes_map')
-            # We need to process all files to build includes_map
+            self.logger.debug('First pass: collecting includes_map from source files')
+
+            # Process source directory files for includes_map
+            src_dir_path = self.project_path / self.src_dir
             for source_files_extension in source_files_extensions:
-                for source_file_path in self.working_dir.rglob(source_files_extension):
+                for source_file_path in src_dir_path.rglob(source_files_extension):
+                    # Get relative path from src_dir
+                    rel_path = source_file_path.relative_to(src_dir_path)
+
+                    # Check if this file is in the working directory (copied)
+                    working_file_path = self.working_dir / rel_path
+
+                    # Read content from source file
                     with open(source_file_path, encoding='utf8') as source_file:
                         source_content = source_file.read()
 
-                    # Process includes just for includes_map collection
-                    # Don't write the result back yet
-                    self.process_includes(
+                    # Determine recipient path for includes_map
+                    recipient_md_path = f'{self.src_dir}/{rel_path.as_posix()}'
+
+                    # Process includes for map collection
+                    self.process_includes_for_map(
                         source_file_path,
                         source_content,
-                        self.project_path.resolve()
+                        recipient_md_path
                     )
 
-        # Second pass: actually process files
-        self.logger.debug('Second pass: processing includes')
+        # Second pass: process files in working directory
+        self.logger.debug('Second pass: processing includes in working directory')
         for source_files_extension in source_files_extensions:
             for source_file_path in self.working_dir.rglob(source_files_extension):
                 with open(source_file_path, encoding='utf8') as source_file:
@@ -1485,20 +1771,20 @@ class Preprocessor(BasePreprocessor):
                     with open(source_file_path, 'w', encoding='utf8') as processed_file:
                         processed_file.write(processed_content)
 
-        # Write includes map
+        # Write includes map (sort data for consistent output)
         if self.includes_map_enable:
             output = f'{self.working_dir}/static/includes_map.json'
             Path(f'{self.working_dir}/static/').mkdir(parents=True, exist_ok=True)
+
+            # Sort includes_map for consistent output
             def sort_includes_map(data):
                 if isinstance(data, list):
-                    # Sorting includes and anchors in each element
                     for item in data:
                         if isinstance(item, dict):
                             if 'includes' in item and isinstance(item['includes'], list):
                                 item['includes'].sort()
                             if 'anchors' in item and isinstance(item['anchors'], list):
                                 item['anchors'].sort()
-                    # Sorting the entire list by the 'file' field
                     data.sort(key=lambda x: x.get('file', ''))
                 return data
 
