@@ -20,7 +20,7 @@ setup(
     author='Konstantin Molchanov',
     author_email='moigagoo@live.com',
     url='https://github.com/foliant-docs/foliantcontrib.includes',
-    packages=['foliant.preprocessors'],
+    packages=['foliant.preprocessors', 'foliant.preprocessors.includes_utils'],
     license='MIT',
     platforms='any',
     install_requires=[
