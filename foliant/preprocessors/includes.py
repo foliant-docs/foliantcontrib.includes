@@ -658,7 +658,6 @@ class Preprocessor(BasePreprocessor):
                     self.logger.debug(
                         f'An error {exception} occurred when resolving the link: {m.group("path")}'
                     )
-                    link = m.group('path')
 
             return f'[{caption}]({link}{anchor})'
 

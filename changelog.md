@@ -1,3 +1,7 @@
+# 1.1.20
+
+- Fix: bug where the `_adjust_links` duplicated the anchor.
+
 # 1.1.19
 
 - Add: anchor link parsing for the includes map.
