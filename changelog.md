@@ -1,3 +1,7 @@
+# 1.1.21
+
+- Fix: the creation of an includes map when using the `only_partial` argument.
+
 # 1.1.20
 
 - Fix: bug where the `_adjust_links` duplicated the anchor.
