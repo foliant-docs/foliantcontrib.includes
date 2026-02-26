@@ -366,3 +366,17 @@ class TestIncludesBasic(TestCase):
             input_mapping=input_map,
             expected_mapping=expected_map,
         )
+
+    def test_adjust_links_five(self):
+        input_map = {
+            'sub/dir/file_a.md': '# Title file_a {#anchor}\n\n<include src="../file_b.md"></include>',
+            'sub/file_b.md': 'Included [file_a link](../dir/file_a#anchor)'
+        }
+        expected_map = {
+            'sub/dir/file_a.md': '# Title file_a {#anchor}\n\nIncluded [file_a link](#anchor)',
+            'sub/file_b.md': 'Included [file_a link](../dir/file_a#anchor)'
+        }
+        self.ptf.test_preprocessor(
+            input_mapping=input_map,
+            expected_mapping=expected_map,
+        )
