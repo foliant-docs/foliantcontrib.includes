@@ -645,9 +645,7 @@ class Preprocessor(BasePreprocessor):
                                 link = f"{'/'.join(link_split)}.md"
                                 link = _resolve_link(link, root_path, depth_origin)
                     if (
-                        depth_difference == 0
-                        ) and (
-                            Path(Path(link).name).with_suffix('').as_posix() == Path(origin_rel.name).with_suffix('').as_posix()
+                        Path(Path(link).name).with_suffix('').as_posix() == Path(origin_rel.name).with_suffix('').as_posix()
                         ):
                         link = ''
                     self.logger.debug(
