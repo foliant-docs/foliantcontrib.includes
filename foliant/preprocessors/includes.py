@@ -601,6 +601,7 @@ class Preprocessor(BasePreprocessor):
 
         :param content: Markdown content
         :param markdown_file_path: Path to the Markdown file containing the content
+        :param origin_file_path: Path to the file that is being inserted
 
         :returns: Markdown content with relative internal link paths
         '''
@@ -634,18 +635,23 @@ class Preprocessor(BasePreprocessor):
                     if extension == ".md":
                         link = _resolve_link(link, root_path, depth_origin - 1)
                     elif extension == "":
-                        if depth_origin >= depth_markdown_file:
-                            link = '../' * depth_difference + link
-                        else:
-                            link_split = link.split('/')
-                            if link_split[0] == '..':
-                                if link_split[-1] == '':
-                                    link_split = link_split[:-1]
+                        link_split = link.split('/')
+                        if link_split[0] == '..':
+                            if link_split[-1] == '':
+                                link_split = link_split[:-1]
+                            if depth_origin > depth_markdown_file:
+                                link_split = link_split[depth_difference:]
+                                link = f"{'/'.join(link_split)}.md"
+                                link = _resolve_link(link, root_path, depth_difference)
+                            elif depth_origin == depth_markdown_file:
+                                link_split = link_split[1:]
+                                link = f"{'/'.join(link_split)}.md"
+                            else:
                                 link_split = link_split[1:]
                                 link = f"{'/'.join(link_split)}.md"
                                 link = _resolve_link(link, root_path, depth_origin)
                     if (
-                        Path(Path(link).name).with_suffix('').as_posix() == Path(origin_rel.name).with_suffix('').as_posix()
+                        (markdown_file_path.absolute().parent / Path(link)).resolve() == Path(origin_file_path)
                         ):
                         link = ''
                     self.logger.debug(
@@ -656,7 +662,6 @@ class Preprocessor(BasePreprocessor):
                     self.logger.debug(
                         f'An error {exception} occurred when resolving the link: {m.group("path")}'
                     )
-
             return f'[{caption}]({link}{anchor})'
 
         return self._link_pattern.sub(_sub, content)

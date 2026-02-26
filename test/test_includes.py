@@ -306,10 +306,10 @@ class TestIncludesBasic(TestCase):
             'sub/file_d.md': '# Title file_d\n\n<include src="../file_b.md"></include>'
         }
         expected_map = {
-            'file_a.md': '# Title file_a\n\nIncluded [file_c link](../file_c/)',
+            'file_a.md': '# Title file_a\n\nIncluded [file_c link](file_c.md)',
             'file_b.md': 'Included [file_c link](../file_c/)',
             'file_c.md': '# Included content \n\n## Header',
-            'sub/file_d.md': '# Title file_d\n\nIncluded [file_c link](../../file_c/)'
+            'sub/file_d.md': '# Title file_d\n\nIncluded [file_c link](../file_c.md)'
         }
         self.ptf.test_preprocessor(
             input_mapping=input_map,
@@ -325,7 +325,7 @@ class TestIncludesBasic(TestCase):
             'file_d.md': '# Title file_d\n\n<include src="sub/file_b.md"></include>'
         }
         expected_map = {
-            'sub/file_a.md': '# Title file_a\n\nIncluded [file_c link](../file_c/)',
+            'sub/file_a.md': '# Title file_a\n\nIncluded [file_c link](file_c.md)',
             'sub/file_b.md': 'Included [file_c link](../file_c/)',
             'file_c.md': '# Included content \n\n## Header',
             'file_d.md': '# Title file_d\n\nIncluded [file_c link](../sub/file_c.md)'
@@ -343,7 +343,7 @@ class TestIncludesBasic(TestCase):
             'file_d.md': '# Title file_d\n\n<include src="sub/file_b.md"></include>'
         }
         expected_map = {
-            'sub/file_a.md': '# Title file_a\n\nIncluded [file_c link](../file_c)',
+            'sub/file_a.md': '# Title file_a\n\nIncluded [file_c link](file_c.md)',
             'sub/file_b.md': 'Included [file_c link](../file_c)',
             'sub/file_c.md': '# Included content \n\n## Header',
             'file_d.md': '# Title file_d\n\nIncluded [file_c link](../sub/file_c.md)'
