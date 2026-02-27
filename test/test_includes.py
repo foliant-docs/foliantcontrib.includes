@@ -320,15 +320,15 @@ class TestIncludesBasic(TestCase):
     def test_adjust_links_two(self):
         input_map = {
             'sub/file_a.md': '# Title file_a\n\n<include src="file_b.md"></include>',
-            'sub/file_b.md': 'Included [file_c link](../file_c/)',
+            'sub/file_b.md': 'Included [file_c link](../../file_c/)',
             'file_c.md': '# Included content \n\n## Header',
             'file_d.md': '# Title file_d\n\n<include src="sub/file_b.md"></include>'
         }
         expected_map = {
-            'sub/file_a.md': '# Title file_a\n\nIncluded [file_c link](file_c.md)',
-            'sub/file_b.md': 'Included [file_c link](../file_c/)',
+            'sub/file_a.md': '# Title file_a\n\nIncluded [file_c link](../file_c.md)',
+            'sub/file_b.md': 'Included [file_c link](../../file_c/)',
             'file_c.md': '# Included content \n\n## Header',
-            'file_d.md': '# Title file_d\n\nIncluded [file_c link](../sub/file_c.md)'
+            'file_d.md': '# Title file_d\n\nIncluded [file_c link](file_c.md)'
         }
         self.ptf.test_preprocessor(
             input_mapping=input_map,
@@ -338,15 +338,15 @@ class TestIncludesBasic(TestCase):
     def test_adjust_links_three(self):
         input_map = {
             'sub/file_a.md': '# Title file_a\n\n<include src="file_b.md"></include>',
-            'sub/file_b.md': 'Included [file_c link](../file_c)',
+            'sub/file_b.md': 'Included [file_c link](../../sub/file_c)',
             'sub/file_c.md': '# Included content \n\n## Header',
             'file_d.md': '# Title file_d\n\n<include src="sub/file_b.md"></include>'
         }
         expected_map = {
-            'sub/file_a.md': '# Title file_a\n\nIncluded [file_c link](file_c.md)',
-            'sub/file_b.md': 'Included [file_c link](../file_c)',
+            'sub/file_a.md': '# Title file_a\n\nIncluded [file_c link](../sub/file_c.md)',
+            'sub/file_b.md': 'Included [file_c link](../../sub/file_c)',
             'sub/file_c.md': '# Included content \n\n## Header',
-            'file_d.md': '# Title file_d\n\nIncluded [file_c link](../sub/file_c.md)'
+            'file_d.md': '# Title file_d\n\nIncluded [file_c link](sub/file_c.md)'
         }
         self.ptf.test_preprocessor(
             input_mapping=input_map,

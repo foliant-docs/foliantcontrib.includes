@@ -605,16 +605,21 @@ class Preprocessor(BasePreprocessor):
 
         :returns: Markdown content with relative internal link paths
         '''
-        def _resolve_link(link, root_path, depth_origin):
+
+        def _resolve_link(link, root_path, markdown_file_path, origin_file_path):
             try:
                 resolved_link = (markdown_file_path.absolute().parent / Path(link)).resolve()
                 resolved_link = resolved_link.relative_to(root_path)
-                resolved_link = '../' * depth_origin + resolved_link.as_posix()
+                origin_dir = Path(origin_file_path).parent
+                depth = len(origin_dir.relative_to(root_path).parts)
+                resolved_link = '../' * depth + resolved_link.as_posix()
                 return resolved_link
+
             except Exception as exception:
                 self.logger.debug(
                     f'An error {exception} occurred when resolving the link: {link}'
                 )
+                return link
 
         def _sub(m):
             caption = m.group('text')
@@ -628,36 +633,24 @@ class Preprocessor(BasePreprocessor):
             if not Path(link).is_absolute():
                 extension = Path(link).suffix
                 try:
-                    origin_rel = origin_file_path.relative_to(root_path)
-                    depth_origin = len(origin_rel.parts)
-                    depth_markdown_file = len(markdown_file_path.relative_to(root_path).parts)
-                    depth_difference = depth_origin - depth_markdown_file
                     if extension == ".md":
-                        link = _resolve_link(link, root_path, depth_origin - 1)
+                        link = _resolve_link(link, root_path, markdown_file_path, origin_file_path)
                     elif extension == "":
                         link_split = link.split('/')
                         if link_split[0] == '..':
                             if link_split[-1] == '':
                                 link_split = link_split[:-1]
-                            if depth_origin > depth_markdown_file:
-                                link_split = link_split[depth_difference:]
-                                link = f"{'/'.join(link_split)}.md"
-                                link = _resolve_link(link, root_path, depth_difference)
-                            elif depth_origin == depth_markdown_file:
-                                link_split = link_split[1:]
-                                link = f"{'/'.join(link_split)}.md"
-                            else:
-                                link_split = link_split[1:]
-                                link = f"{'/'.join(link_split)}.md"
-                                link = _resolve_link(link, root_path, depth_origin)
-                    if ((markdown_file_path.absolute().parent / Path(link)).resolve() == Path(origin_file_path)):
+                            link_split = link_split[1:]
+                            test_link = f"{'/'.join(link_split)}.md"
+                            link = _resolve_link(test_link, root_path, markdown_file_path, origin_file_path)
+
+                    if ((origin_file_path.absolute().parent / Path(link)).resolve() == Path(origin_file_path)):
                         link = ''
 
                     self.logger.debug(
                         f'Updating link reference; user specified path: {m.group("path")}, ' +
                         f'absolute path: {link}'
                     )
-
                 except Exception as exception:
                     self.logger.debug(
                         f'An error {exception} occurred when resolving the link: {m.group("path")}'
