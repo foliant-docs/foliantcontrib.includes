@@ -650,18 +650,19 @@ class Preprocessor(BasePreprocessor):
                                 link_split = link_split[1:]
                                 link = f"{'/'.join(link_split)}.md"
                                 link = _resolve_link(link, root_path, depth_origin)
-                    if (
-                        (markdown_file_path.absolute().parent / Path(link)).resolve() == Path(origin_file_path)
-                        ):
+                    if ((markdown_file_path.absolute().parent / Path(link)).resolve() == Path(origin_file_path)):
                         link = ''
+
                     self.logger.debug(
                         f'Updating link reference; user specified path: {m.group("path")}, ' +
                         f'absolute path: {link}'
                     )
+
                 except Exception as exception:
                     self.logger.debug(
                         f'An error {exception} occurred when resolving the link: {m.group("path")}'
                     )
+
             return f'[{caption}]({link}{anchor})'
 
         return self._link_pattern.sub(_sub, content)
