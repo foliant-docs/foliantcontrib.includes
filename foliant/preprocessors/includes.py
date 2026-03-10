@@ -643,10 +643,10 @@ class Preprocessor(BasePreprocessor):
                             link_split = link_split[1:]
                             test_link = f"{'/'.join(link_split)}.md"
                             test_link = _resolve_link(test_link, root_path, markdown_file_path, origin_file_path)
-                            if ((origin_file_path.absolute().parent / Path(test_link)).resolve().exists()):
+                            if Path(origin_file_path.absolute().parent / Path(test_link)).resolve().exists():
                                 link = test_link
 
-                    if ((origin_file_path.absolute().parent / Path(link)).resolve() == Path(origin_file_path)):
+                    if Path(origin_file_path.absolute().parent / Path(link)).resolve() == Path(origin_file_path):
                         link = ''
 
                     self.logger.debug(
