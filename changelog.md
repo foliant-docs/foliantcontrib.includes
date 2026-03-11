@@ -1,3 +1,7 @@
+# 1.1.21
+
+- Fix: simplified link resolution logic in the includes preprocessor and added comprehensive test coverage for anchor link adjustments.
+
 # 1.1.20
 
 - Fix: bug where the `_adjust_links` duplicated the anchor.
