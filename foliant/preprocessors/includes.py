@@ -1403,6 +1403,17 @@ class Preprocessor(BasePreprocessor):
                                             if anchor not in self.includes_map[i]['anchors']:
                                                 self.includes_map[i]['anchors'].append(anchor)
 
+                if options.get('setindent', False):
+                    indent = ' ' * options.get('setindent')
+                    lines = processed_content_part.splitlines(True)
+                    processed_lines = []
+                    for line in lines:
+                        if line.strip():
+                            processed_lines.append(indent + line)
+                        else:
+                            processed_lines.append(line)
+                    processed_content_part = ''.join(processed_lines)
+
             else:
                 processed_content_part = content_part
 

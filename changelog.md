@@ -1,5 +1,9 @@
 # 1.1.21
 
+- Add: the `setindent` attribute, which can be used to add indentation to the inserted content.
+
+# 1.1.21
+
 - Fix: simplified link resolution logic in the includes preprocessor and added comprehensive test coverage for anchor link adjustments.
 
 # 1.1.20
