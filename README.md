@@ -270,6 +270,48 @@ Different options can be combined. For example, use both `sethead` and `nohead` 
 <include src="other.md" from_heading="Original Heading" sethead="1" nohead="true"></include>
 ```
 
+`setindent`
+:   Attribute, which can be used to add indentation to the inserted content. The value specifies the number of spaces to prepend to each **non-empty** line of the included content.
+
+    > **Note**
+    >
+    > Indentation is applied only to non-empty lines.
+
+    **Examples:**
+
+    - `setindent="4"` — adds 4 spaces before each non-empty line
+    - `setindent="2"` — adds 2 spaces before each non-empty line
+
+    **Usage:**
+
+    ```markdown
+    <include src="snippet.md" setindent="4"></include>
+    ```
+
+    **When to use:**
+
+    - Maintaining consistent indentation when including content inside list items, blockquotes, or admonitions
+    - Aligning included content with surrounding markup structure
+    - Preserving readability of nested includes
+
+    **Example with empty lines:**
+
+    ```markdown
+    <!-- Original content -->
+    Line 1
+
+    Line 3
+
+    <!-- With setindent="2" -->
+      Line 1
+
+      Line 3
+    ```
+
+    > **Important**
+    >
+    > If `setindent` is used together with `sethead` or `nohead`, the heading is indented as well (unless it's empty). To exclude the heading from indentation, apply `setindent` only to the content body by combining it with other attributes appropriately.
+
 ### The Legacy Syntax
 
 This syntax was the only supported in the preprocessor up to version 1.0.11.
