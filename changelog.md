@@ -1,4 +1,4 @@
-# 1.1.21
+# 1.1.22
 
 - Add: the `setindent` attribute, which can be used to add indentation to the inserted content.
 
