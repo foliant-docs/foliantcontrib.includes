@@ -1,3 +1,8 @@
+# 1.1.23
+
+- Feat: line trimming at the beginning and end of the content inserted with the `setindent` attribute.
+- Add: support for negative values of the `setindent` attribute
+
 # 1.1.22
 
 - Add: the `setindent` attribute, which can be used to add indentation to the inserted content.
