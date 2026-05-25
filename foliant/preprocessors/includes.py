@@ -1404,15 +1404,33 @@ class Preprocessor(BasePreprocessor):
                                                 self.includes_map[i]['anchors'].append(anchor)
 
                 if options.get('setindent', False):
-                    indent = ' ' * options.get('setindent')
+                    setindent_value = int(options.get('setindent'))
+                    
+                    def remove_indent_whitespace(line: str, amount: int):
+                        removed = 0
+                        pos = 0
+                        target = abs(amount)
+                        
+                        while pos < len(line) and removed < target and line[pos].isspace():
+                            pos += 1
+                            removed += 1
+                        
+                        return line[pos:]
+
                     lines = processed_content_part.splitlines(True)
                     processed_lines = []
+
                     for line in lines:
                         if line.strip():
-                            processed_lines.append(indent + line)
+                            if setindent_value >= 0:
+                                indent = ' ' * setindent_value
+                                processed_lines.append(indent + line)
+                            else:
+                                processed_lines.append(remove_indent_whitespace(line, setindent_value))
                         else:
                             processed_lines.append(line)
-                    processed_content_part = ''.join(processed_lines)
+                    
+                    processed_content_part = ''.join(processed_lines).strip()
 
             else:
                 processed_content_part = content_part

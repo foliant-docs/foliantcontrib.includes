@@ -384,7 +384,7 @@ class TestIncludesBasic(TestCase):
     def test_setindent_basic(self):
         """Test basic indentation with setindent attribute"""
         input_map = {
-            'index.md': '# My title\n\n<include src="sub/sub.md" setindent="4"></include>',
+            'index.md': '# My title\n\n    <include src="sub/sub.md" setindent="4"></include>',
             'sub/sub.md': 'Line 1\nLine 2\nLine 3'
         }
         expected_map = {
@@ -399,27 +399,12 @@ class TestIncludesBasic(TestCase):
     def test_setindent_with_empty_lines(self):
         """Test that empty lines are NOT indented"""
         input_map = {
-            'index.md': '# My title\n\n<include src="sub/sub.md" setindent="4"></include>',
+            'index.md': '# My title\n\n    <include src="sub/sub.md" setindent="4"></include>',
             'sub/sub.md': 'Line 1\n\nLine 3\n\nLine 5'
         }
         expected_map = {
             'index.md': '# My title\n\n    Line 1\n\n    Line 3\n\n    Line 5',
             'sub/sub.md': 'Line 1\n\nLine 3\n\nLine 5'
-        }
-        self.ptf.test_preprocessor(
-            input_mapping=input_map,
-            expected_mapping=expected_map,
-        )
-
-    def test_setindent_with_whitespace_only_lines(self):
-        """Test that lines containing only spaces/tabs are NOT indented"""
-        input_map = {
-            'index.md': '# My title\n\n<include src="sub/sub.md" setindent="2"></include>',
-            'sub/sub.md': 'Line 1\n  \n\t\nLine 4'
-        }
-        expected_map = {
-            'index.md': '# My title\n\n  Line 1\n  \n\t\n  Line 4',
-            'sub/sub.md': 'Line 1\n  \n\t\nLine 4'
         }
         self.ptf.test_preprocessor(
             input_mapping=input_map,
@@ -435,9 +420,10 @@ class TestIncludesBasic(TestCase):
         ]
 
         for indent_value, expected_content in test_cases:
+            tag_indent = " " * int(indent_value)
             with self.subTest(indent=indent_value):
                 input_map = {
-                    'index.md': f'# My title\n\n<include src="sub/sub.md" setindent="{indent_value}"></include>',
+                    'index.md': f'# My title\n\n{tag_indent}<include src="sub/sub.md" setindent="{indent_value}"></include>',
                     'sub/sub.md': 'Line 1\nLine 2'
                 }
                 expected_map = {
@@ -452,7 +438,7 @@ class TestIncludesBasic(TestCase):
     def test_setindent_with_nohead(self):
         """Test setindent combined with nohead attribute"""
         input_map = {
-            'index.md': '# My title\n\n<include src="sub/sub.md" setindent="4" nohead="true"></include>',
+            'index.md': '# My title\n\n    <include src="sub/sub.md" setindent="4" nohead="true"></include>',
             'sub/sub.md': '# Heading\nContent line 1\nContent line 2'
         }
         expected_map = {
@@ -467,7 +453,7 @@ class TestIncludesBasic(TestCase):
     def test_setindent_with_sethead(self):
         """Test setindent combined with sethead attribute"""
         input_map = {
-            'index.md': '# My title\n\n<include src="sub/sub.md" setindent="4" sethead="3"></include>',
+            'index.md': '# My title\n\n    <include src="sub/sub.md" setindent="4" sethead="3"></include>',
             'sub/sub.md': '# Original Heading\nContent line 1\nContent line 2'
         }
         expected_map = {
@@ -483,7 +469,7 @@ class TestIncludesBasic(TestCase):
         """Test indentation propagates to nested includes"""
         input_map = {
             'index.md': '# Main\n\n<include src="parent.md"></include>',
-            'parent.md': '- Parent line\n\n<include src="child.md" setindent="4"></include>\n\n- Parent end',
+            'parent.md': '- Parent line\n\n    <include src="child.md" setindent="4"></include>\n\n- Parent end',
             'child.md': '- Child line 1\n- Child line 2'
         }
         expected_map = {
@@ -500,7 +486,7 @@ class TestIncludesBasic(TestCase):
         """Test setindent with wrap_code attribute"""
         code = 'def hello():\n    print("Hello")\n'
         input_map = {
-            'index.md': '# My title\n\n<include src="sub/sub.md" setindent="4" wrap_code="triple_backticks"></include>',
+            'index.md': '# My title\n\n    <include src="sub/sub.md" setindent="4" wrap_code="triple_backticks"></include>',
             'sub/sub.md': code
         }
         expected_map = {
@@ -530,12 +516,57 @@ class TestIncludesBasic(TestCase):
     def test_setindent_with_trailing_newline(self):
         """Test indentation preserves trailing newlines correctly"""
         input_map = {
-            'index.md': '# My title\n\n<include src="sub/sub.md" setindent="4"></include>',
+            'index.md': '# My title\n\n    <include src="sub/sub.md" setindent="4"></include>',
             'sub/sub.md': 'Line 1\nLine 2\n'
         }
         expected_map = {
             'index.md': '# My title\n\n    Line 1\n    Line 2\n',
             'sub/sub.md': 'Line 1\nLine 2\n'
+        }
+        self.ptf.test_preprocessor(
+            input_mapping=input_map,
+            expected_mapping=expected_map,
+        )
+
+    def test_setindent_negative_remove_indent(self):
+        """Test negative setindent removes leading whitespace relative to parent indent"""
+        input_map = {
+            'index.md': '# My title\n\n<include src="sub/sub.md" setindent="-4"></include>',
+            'sub/sub.md': '    Line 1\n    Line 2\n    Line 3'
+        }
+        expected_map = {
+            'index.md': '# My title\n\nLine 1\nLine 2\nLine 3',
+            'sub/sub.md': '    Line 1\n    Line 2\n    Line 3'
+        }
+        self.ptf.test_preprocessor(
+            input_mapping=input_map,
+            expected_mapping=expected_map,
+        )
+
+    def test_setindent_negative_with_empty_lines(self):
+        """Test negative setindent does NOT affect empty lines"""
+        input_map = {
+            'index.md': '# My title\n\n<include src="sub/sub.md" setindent="-4"></include>',
+            'sub/sub.md': '    Line 1\n\n    Line 3\n    \n    Line 5'
+        }
+        expected_map = {
+            'index.md': '# My title\n\nLine 1\n    \nLine 3\n\nLine 5',
+            'sub/sub.md': '    Line 1\n\n    Line 3\n    \n    Line 5'
+        }
+        self.ptf.test_preprocessor(
+            input_mapping=input_map,
+            expected_mapping=expected_map,
+        )
+
+    def test_setindent_negative_with_nohead(self):
+        """Test negative setindent combined with nohead removes indentation from content"""
+        input_map = {
+            'index.md': '# My title\n\n    <include src="sub/sub.md" setindent="-2" nohead="true"></include>',
+            'sub/sub.md': '# Heading\n      Content line 1\n      Content line 2'
+        }
+        expected_map = {
+            'index.md': '# My title\n\n    Content line 1\n    Content line 2',
+            'sub/sub.md': '# Heading\n      Content line 1\n      Content line 2'
         }
         self.ptf.test_preprocessor(
             input_mapping=input_map,

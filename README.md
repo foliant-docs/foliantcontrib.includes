@@ -271,46 +271,43 @@ Different options can be combined. For example, use both `sethead` and `nohead` 
 ```
 
 `setindent`
-:   Attribute, which can be used to add indentation to the inserted content. The value specifies the number of spaces to prepend to each **non-empty** line of the included content.
+:   Attribute that controls indentation of the included content. 
+
+    - **Positive integer** (e.g., `"4"`): adds the specified number of spaces to the beginning of each **non-empty** line.
+    - **Zero** (`"0"`): leaves the content unchanged (no indentation added or removed).
+    - **Negative integer** (e.g., `"-4"`): removes up to the specified number of whitespace characters from the beginning of each **non-empty** line **relative to the current indentation level** (i.e., after applying the parent document's indentation).
 
     > **Note**
     >
-    > Indentation is applied only to non-empty lines.
+    > Indentation is applied only to **non-empty lines**. Empty lines (lines containing only whitespace or nothing) are preserved as-is without modification.
 
     **Examples:**
 
     - `setindent="4"` — adds 4 spaces before each non-empty line
     - `setindent="2"` — adds 2 spaces before each non-empty line
+    - `setindent="0"` — leaves content unchanged (no effect)
+    - `setindent="-4"` — removes up to 4 whitespace characters from the beginning of each non-empty line
 
     **Usage:**
 
     ```markdown
     <include src="snippet.md" setindent="4"></include>
+    <include src="code.py" setindent="-2"></include>
     ```
 
     **When to use:**
 
-    - Maintaining consistent indentation when including content inside list items, blockquotes, or admonitions
-    - Aligning included content with surrounding markup structure
-    - Preserving readability of nested includes
-
-    **Example with empty lines:**
-
-    ```markdown
-    <!-- Original content -->
-    Line 1
-
-    Line 3
-
-    <!-- With setindent="2" -->
-      Line 1
-
-      Line 3
-    ```
+    - **Positive values:** Maintaining consistent indentation when including content inside list items, blockquotes, or admonitions
+    - **Zero:** Explicitly specifying "no indentation change" (useful for configuration or templates)
+    - **Negative values:** Reducing existing indentation (e.g., when including code that's over-indented)
 
     > **Important**
     >
-    > If `setindent` is used together with `sethead` or `nohead`, the heading is indented as well (unless it's empty). To exclude the heading from indentation, apply `setindent` only to the content body by combining it with other attributes appropriately.
+    > - Empty lines (lines with no content or only whitespace) are never indented or dedented
+    > - When `setindent` is used together with `sethead` or `nohead`, the heading line is also affected by indentation (unless it's empty)
+    > - Negative values only remove whitespace characters (spaces, tabs, etc.), never other characters
+    > - If a line has fewer whitespace characters than the absolute negative value, all available whitespace is removed
+    > - **Negative indentation is applied relative to the parent document's indentation level** (the spaces preceding the `<include>` tag are considered part of the indentation context)
 
 ### The Legacy Syntax
 
