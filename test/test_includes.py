@@ -3,6 +3,8 @@ import re
 from inspect import getsource
 from pathlib import Path
 from unittest import TestCase
+from unittest.mock import patch
+
 from foliant_test.preprocessor import PreprocessorTestFramework
 from .utils import data_file_content
 import urllib.request
@@ -572,3 +574,30 @@ class TestIncludesBasic(TestCase):
             input_mapping=input_map,
             expected_mapping=expected_map,
         )
+
+    def test_file_not_exist(self):
+        self.ptf.options = {'strict': False }
+        input_map = {
+            'index.md': '# My title\n\n<include nohead="true" src="file_a.md"></include>'
+        }
+        expected_map = {
+            'index.md': '# My title\n\nThe url or repo_url link is not correct, file not found: file_a.md'
+        }
+
+        self.ptf.test_preprocessor(
+            input_mapping=input_map,
+            expected_mapping=expected_map,
+        )
+
+    def test_file_not_exist_strict(self):
+        self.ptf.options = {'strict': True }
+        input_map = {
+            'index.md': '# My title\n\n<include nohead="true" src="file_a.md"></include>'
+        }
+
+        with patch('os._exit') as mock_exit:
+            self.ptf.test_preprocessor(
+                input_mapping=input_map
+            )
+
+        mock_exit.assert_called_once_with(2)

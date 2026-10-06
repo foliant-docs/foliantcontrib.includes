@@ -1,3 +1,15 @@
+# 1.1.26
+
+- Fix: error in definitions the path to output the message.
+
+# 1.1.25
+
+- Add: warning message if included file not exist.
+
+# 1.1.24
+
+- Fix: execution if `setindent` is 0.
+
 # 1.1.23
 
 - Feat: line trimming at the beginning and end of the content inserted with the `setindent` attribute.

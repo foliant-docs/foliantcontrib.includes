@@ -1,4 +1,5 @@
 import re
+import os
 import urllib.request
 import urllib.error
 from shutil import rmtree
@@ -11,19 +12,21 @@ from json import dump
 from os import getcwd
 
 
-from foliant.preprocessors.base import BasePreprocessor
+from foliant.preprocessors.utils.preprocessor_ext import BasePreprocessorExt
 from foliant.preprocessors import escapecode
 from foliant.meta.tools import remove_meta
+from foliant.utils import output
 
 
-class Preprocessor(BasePreprocessor):
+class Preprocessor(BasePreprocessorExt):
     defaults = {
         'recursive': True,
         'stub_text': True,
         'allow_failure': True,
         'cache_dir': Path('.includescache'),
         'aliases': {},
-        'extensions': ['md']
+        'extensions': ['md'],
+        'strict': False
     }
 
     tags = 'include',
@@ -214,12 +217,14 @@ class Preprocessor(BasePreprocessor):
     def _sync_repo(
             self,
             repo_url: str,
-            revision: str or None = None
+            revision: str or None = None,
+            tag_position: str or None = None,
     ) -> Path:
         '''Clone a Git repository to the cache dir. If it has been cloned before, update it.
 
         :param repo_url: Repository URL
         :param revision: Revision: branch, commit hash, or tag
+        :param markdown_file_path: Path to currently processed Markdown file
 
         :returns: Path to the cloned repository
         '''
@@ -227,7 +232,7 @@ class Preprocessor(BasePreprocessor):
         repo_name = repo_url.split('/')[-1].rsplit('.', maxsplit=1)[0]
         repo_path = (self._cache_dir_path / repo_name).resolve()
 
-        self.logger.debug(f'Synchronizing with repo; URL: {repo_url}, revision: {revision}')
+        self.logger.debug(f'Synchronizing with repo; URL: {repo_url}, revision: {revision}, tag_position: {tag_position}')
 
         try:
             self.logger.debug(f'Cloning repo {repo_url} to {repo_path}')
@@ -256,22 +261,48 @@ class Preprocessor(BasePreprocessor):
 
                 except CalledProcessError as exception:
                     self.logger.warning(str(exception))
+                    if self.options['strict']:
+                        output(f'ERROR: [{tag_position}] Failed to execute git clone {repo_url} from {revision}: {exception}')
+                        os._exit(2)
+                    else:
+                        self._warning(f'[{tag_position}] Failed to execute git clone {repo_url} from {revision}', error=exception)
+                    return repo_path
                 except Exception as exception:
                     self.logger.warning(str(exception))
+                    if self.options['strict']:
+                        output(f'ERROR: [{tag_position}] Failed to execute git clone {repo_url} from {revision}: {exception}')
+                        os._exit(2)
+                    else:
+                        self._warning(f'[{tag_position}] Failed to execute git clone {repo_url} from {revision}', error=exception)
+                    return repo_path
 
             else:
                 self.logger.error(str(exception))
 
-        if revision:
-            run(
-                f'git checkout {revision}',
-                cwd=repo_path,
-                shell=True,
-                check=True,
-                stdout=PIPE,
-                stderr=STDOUT
-            )
+                if self.options['strict']:
+                    output(f'ERROR: [{tag_position}] Failed to execute git clone {repo_url} from {revision}: {exception}')
+                    os._exit(2)
+                else:
+                    self._warning(f'[{tag_position}] Failed to execute git clone {repo_url} from {revision}', error=exception)
 
+        if revision:
+            try:
+                run(
+                    f'git switch {revision}',
+                    cwd=repo_path,
+                    shell=True,
+                    check=True,
+                    stdout=PIPE,
+                    stderr=STDOUT
+                )
+            except CalledProcessError as exception:
+                self.logger.warning(str(exception))
+                if self.options['strict']:
+                    output(f'ERROR: [{tag_position}] Failed to execute git switch {repo_url} from {revision}: {exception}')
+                    os._exit(2)
+                else:
+                    self._warning(f'[{tag_position}] Failed to execute git switch {repo_url} from {revision}', error=exception)
+                return repo_path
         return repo_path
 
     def _shift_headings(
@@ -811,7 +842,8 @@ class Preprocessor(BasePreprocessor):
             sethead: int or None = None,
             nohead: bool = False,
             include_link: str or None = None,
-            origin_file_path: Path = None
+            origin_file_path: Path = None,
+            tag_position: str = None
     ) -> (str, list):
         '''Replace a local include statement with the file content. Necessary
         adjustments are applied to the content: cut between certain headings,
@@ -840,9 +872,26 @@ class Preprocessor(BasePreprocessor):
         anchors = []
 
         if not included_file_path.exists():
-            if self.options['allow_failure']:
-                self.logger.error(f'The url or repo_url link is not correct, file not found: {included_file_path}')
+            donor_link = included_file_path
+            for base in [self.working_dir.resolve(), self.working_dir.resolve().parent]:
+                try:
+                    donor_link = included_file_path.relative_to(base)
+                    break
+                except (ValueError, OSError):
+                    continue
 
+            if (include_link):
+                donor_link = include_link
+
+            self.logger.error(f'The url or repo_url link is not correct, file not found: {donor_link}')
+
+            if self.options['strict']:
+                output(f'ERROR: [{tag_position}] Could not insert content from {donor_link}')
+                os._exit(2)
+            else:
+                self._warning(f'[{tag_position}] Could not insert content from {donor_link}')
+
+            if self.options['allow_failure']:
                 path_error_link = Path(self.project_path/'.error_link').resolve()
 
                 if not Path(path_error_link).exists():
@@ -851,12 +900,11 @@ class Preprocessor(BasePreprocessor):
                 path_error_file = open(path_error_link/included_file_path.name, 'w+', encoding='utf8')
 
                 if self.options['stub_text']:
-                    path_error_file.write(f'The url or repo_url link is not correct, file not found: {included_file_path}')
+                    path_error_file.write(f'The url or repo_url link is not correct, file not found: {donor_link}')
                 path_error_file.close()
 
                 included_file_path = path_error_link/included_file_path.name
             else:
-                self.logger.error(f'The url or repo_url link is not correct, file not found: {included_file_path}')
                 return '', anchors
 
         with open(included_file_path, encoding='utf8') as included_file:
@@ -1029,18 +1077,16 @@ class Preprocessor(BasePreprocessor):
         :returns: Markdown content with resolved includes
         '''
 
-        if self.includes_map_enable:
-            if markdown_file_path.as_posix().startswith(self.working_dir.as_posix()):
-                recipient_md_path = f'{self.src_dir}/{markdown_file_path.relative_to(self.working_dir).as_posix()}'
-            else:
-                recipient_md_path = f'{self.src_dir}/{markdown_file_path.as_posix()}'
+        if markdown_file_path.as_posix().startswith(self.working_dir.as_posix()):
+            recipient_md_path = f'{self.src_dir}/{markdown_file_path.relative_to(self.working_dir).as_posix()}'
+        else:
+            recipient_md_path = f'{self.src_dir}/{markdown_file_path.as_posix()}'
 
         markdown_file_path = markdown_file_path.resolve()
 
         self.logger.debug(f'Processing Markdown file: {markdown_file_path}')
 
         processed_content = ''
-
         include_statement_pattern = re.compile(
             rf'((?<!\<)\<(?:{"|".join(self.tags)})(?:\s[^\<\>]*)?\>.*?\<\/(?:{"|".join(self.tags)})\>)',
             flags=re.DOTALL
@@ -1050,6 +1096,8 @@ class Preprocessor(BasePreprocessor):
 
         for content_part in content_parts:
             include_statement = self.pattern.fullmatch(content_part)
+
+            tag_position = f'{recipient_md_path}'
 
             if include_statement:
                 if self.includes_map_enable:
@@ -1135,7 +1183,7 @@ class Preprocessor(BasePreprocessor):
 
                         self.logger.debug(f'Repo URL: {repo_url}, revision: {revision}')
 
-                        repo_path = self._sync_repo(repo_url, revision)
+                        repo_path = self._sync_repo(repo_url, revision, tag_position)
 
                         self.logger.debug(f'Local path of the repo: {repo_path}')
 
@@ -1165,7 +1213,8 @@ class Preprocessor(BasePreprocessor):
                             to_heading=body.group('to_heading'),
                             sethead=current_sethead,
                             nohead=options.get('nohead'),
-                            origin_file_path=markdown_file_path
+                            origin_file_path=markdown_file_path,
+                            tag_position=tag_position
                         )
 
                         if self.includes_map_enable and self.includes_map_anchors:
@@ -1197,7 +1246,8 @@ class Preprocessor(BasePreprocessor):
                             to_heading=body.group('to_heading'),
                             sethead=current_sethead,
                             nohead=options.get('nohead'),
-                            origin_file_path=markdown_file_path
+                            origin_file_path=markdown_file_path,
+                            tag_position=tag_position
                         )
 
                         if self.includes_map_enable:
@@ -1214,7 +1264,7 @@ class Preprocessor(BasePreprocessor):
                     if options.get('repo_url') and options.get('path'):
                         self.logger.debug('File in Git repository referenced')
 
-                        repo_path = self._sync_repo(options.get('repo_url'), options.get('revision'))
+                        repo_path = self._sync_repo(options.get('repo_url'), options.get('revision'), tag_position)
 
                         self.logger.debug(f'Local path of the repo: {repo_path}')
 
@@ -1242,7 +1292,8 @@ class Preprocessor(BasePreprocessor):
                             sethead=current_sethead,
                             nohead=options.get('nohead'),
                             include_link=include_link,
-                            origin_file_path=markdown_file_path
+                            origin_file_path=markdown_file_path,
+                            tag_position=tag_position
                         )
 
                         if self.includes_map_enable:
@@ -1277,7 +1328,8 @@ class Preprocessor(BasePreprocessor):
                             to_end=options.get('to_end'),
                             sethead=current_sethead,
                             nohead=options.get('nohead'),
-                            origin_file_path=markdown_file_path
+                            origin_file_path=markdown_file_path,
+                            tag_position=tag_position
                         )
 
                         if self.includes_map_enable:
@@ -1315,7 +1367,8 @@ class Preprocessor(BasePreprocessor):
                             to_end=options.get('to_end'),
                             sethead=current_sethead,
                             nohead=options.get('nohead'),
-                            origin_file_path=markdown_file_path
+                            origin_file_path=markdown_file_path,
+                            tag_position=tag_position
                         )
 
                         if self.includes_map_enable:
@@ -1403,18 +1456,18 @@ class Preprocessor(BasePreprocessor):
                                             if anchor not in self.includes_map[i]['anchors']:
                                                 self.includes_map[i]['anchors'].append(anchor)
 
-                if options.get('setindent', False):
+                if 'setindent' in options:
                     setindent_value = int(options.get('setindent'))
-                    
+
                     def remove_indent_whitespace(line: str, amount: int):
                         removed = 0
                         pos = 0
                         target = abs(amount)
-                        
+
                         while pos < len(line) and removed < target and line[pos].isspace():
                             pos += 1
                             removed += 1
-                        
+
                         return line[pos:]
 
                     lines = processed_content_part.splitlines(True)
@@ -1429,7 +1482,7 @@ class Preprocessor(BasePreprocessor):
                                 processed_lines.append(remove_indent_whitespace(line, setindent_value))
                         else:
                             processed_lines.append(line)
-                    
+
                     processed_content_part = ''.join(processed_lines).strip()
 
             else:
@@ -1476,26 +1529,29 @@ class Preprocessor(BasePreprocessor):
 
         source_files_extensions = self._get_source_files_extensions()
 
-        for source_files_extension in source_files_extensions:
-            for source_file_path in self.working_dir.rglob(source_files_extension):
-                with open(source_file_path, encoding='utf8') as source_file:
-                    source_content = source_file.read()
+        try:
+            for source_files_extension in source_files_extensions:
+                for source_file_path in self.working_dir.rglob(source_files_extension):
+                    with open(source_file_path, encoding='utf8') as source_file:
+                        source_content = source_file.read()
 
-                processed_content = self.process_includes(
-                    source_file_path,
-                    source_content,
-                    self.project_path.resolve()
-                )
+                    processed_content = self.process_includes(
+                        source_file_path,
+                        source_content,
+                        self.project_path.resolve()
+                    )
 
-                if processed_content:
-                    with open(source_file_path, 'w', encoding='utf8') as processed_file:
-                        processed_file.write(processed_content)
+                    if processed_content:
+                        with open(source_file_path, 'w', encoding='utf8') as processed_file:
+                            processed_file.write(processed_content)
+        finally:
+            self._finalize_warnings()
 
         # Write includes map
         if self.includes_map_enable:
             output = f'{self.working_dir}/static/includes_map.json'
             Path(f'{self.working_dir}/static/').mkdir(parents=True, exist_ok=True)
-            with open(f'{self.working_dir}/static/includes_map.json', 'w', encoding='utf8') as f:
+            with open(output, 'w', encoding='utf8') as f:
                 dump(self.includes_map, f)
             self.logger.debug(f'includes_map write to {output}')
 
