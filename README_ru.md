@@ -36,6 +36,7 @@ preprocessors:
         aliases:
             ...
         includes_map: true
+        strict: false
 ```
 
 `cache_dir`
@@ -93,6 +94,9 @@ preprocessors:
 >```
 >
 >Обратите внимание, что во втором примере ветка `develop` будет заменена на `master`.
+
+`strict`
+:   Если `true`, то в случае ошибки сборка будет прервана
 
 ## Синтаксис препроцессора
 
